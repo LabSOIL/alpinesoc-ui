@@ -254,7 +254,7 @@ body,
 
 .leaflet-container {
   width: 80%;
-  height: 500px;
+  height: 80vh;
   border: 1px solid #ccc;
   border-radius: 6px;
 }
