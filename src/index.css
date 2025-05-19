@@ -67,33 +67,3 @@ button:focus-visible {
     background-color: #f9f9f9;
   }
 }
-
-.mode-switch {
-  display: flex;
-  justify-content: space-around;
-  padding: 0.5rem;
-}
-
-.mode-btn {
-  flex: 1;
-  padding: 0.5rem 0;
-  background: none;
-  border: 1px solid #ccc;
-  cursor: pointer;
-  font-weight: 500;
-}
-
-.mode-btn:first-child {
-  border-radius: 4px 0 0 4px;
-}
-
-.mode-btn:last-child {
-  border-radius: 0 4px 4px 0;
-  border-left: none;
-}
-
-.mode-btn.active {
-  background-color: #2b8cbe;
-  color: white;
-  border-color: #2b8cbe;
-}

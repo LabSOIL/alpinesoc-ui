@@ -262,3 +262,46 @@ body,
   border: 1px solid #ccc;
   border-radius: 6px;
 }
+
+
+.mode-switch {
+  position: relative;
+  display: inline-flex;
+  /* no width:100% or max-width needed */
+  background: #e0e0e0;
+  border-radius: 999px;
+  padding: 2px;
+  font-size: 0.85rem;
+  user-select: none;
+  margin-bottom: 0.5rem;
+}
+
+.mode-switch-thumb {
+  position: absolute;
+  top: 2px;
+  bottom: 2px;
+  background-color: #2b8cbe;
+  border-radius: 999px;
+  transition: left 0.25s ease, width 0.25s ease;
+}
+
+.mode-btn {
+  position: relative;
+  z-index: 1;
+  /* remove flex:1 so they size to content */
+  flex: none;
+  white-space: nowrap;
+  /* keep the label on one line */
+  padding: 0.25rem 0.5rem;
+  background: none;
+  border: none;
+  cursor: pointer;
+  font-weight: 500;
+  color: #444;
+  text-align: center;
+  transition: color 0.25s;
+}
+
+.mode-btn.active {
+  color: #fff;
+}

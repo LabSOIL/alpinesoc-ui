@@ -1,4 +1,4 @@
-import React, { useState, useEffect, useRef, useMemo } from 'react';
+import React, { useState, useEffect, useRef, useMemo, useLayoutEffect } from 'react';
 import './App.css';
 import {
   MapContainer,
@@ -247,6 +247,28 @@ export default function App() {
   const [shouldRecenter, setShouldRecenter] = useState(false);
   const sectionsRef = useRef([]);
 
+  const expBtnRef = useRef(null);
+  const modBtnRef = useRef(null);
+  const [thumbStyle, setThumbStyle] = useState({ left: 0, width: 0 });
+
+
+  useLayoutEffect(() => {
+    const updateThumb = () => {
+      const ref = viewMode === 'experimental' ? expBtnRef : modBtnRef;
+      if (ref.current) {
+        const { offsetLeft, offsetWidth } = ref.current;
+        setThumbStyle({ left: offsetLeft, width: offsetWidth });
+      }
+    };
+    updateThumb();
+    window.addEventListener('resize', updateThumb);
+    return () => window.removeEventListener('resize', updateThumb);
+  }, [viewMode, activeAreaId]); // ← add activeAreaId here
+
+
+
+
+
   const scrollTo = key => {
     const idx = menuItems.findIndex(i => i.key === key);
     sectionsRef.current[idx]?.scrollIntoView({ behavior: 'smooth' });
@@ -388,21 +410,26 @@ export default function App() {
                 {item.key === 'data' && activeAreaId && (
                   <>
                     <div className="mode-switch">
+                      <div
+                        className="mode-switch-thumb"
+                        style={{ left: thumbStyle.left, width: thumbStyle.width }}
+                      />
                       <button
-                        type="button"
+                        ref={expBtnRef}
                         className={`mode-btn ${viewMode === 'experimental' ? 'active' : ''}`}
                         onClick={() => setViewMode('experimental')}
                       >
                         Experimental
                       </button>
                       <button
-                        type="button"
+                        ref={modBtnRef}
                         className={`mode-btn ${viewMode === 'model' ? 'active' : ''}`}
                         onClick={() => setViewMode('model')}
                       >
                         Model
                       </button>
                     </div>
+
                     <ul className="sub-menu">
                       {item.subItems.map(s => (
                         <li key={s.key}>
