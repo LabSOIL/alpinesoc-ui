@@ -5,6 +5,7 @@ import {
   Popup,
   Polygon,
   CircleMarker,
+  Marker,
   Tooltip,
   useMap
 } from 'react-leaflet';
@@ -103,7 +104,6 @@ function Legend({ selectedData, areas, activeAreaId }) {
   return null;
 }
 
-
 function CatchmentLayers({
   areas,
   activeAreaId,
@@ -114,9 +114,8 @@ function CatchmentLayers({
 }) {
   const map = useMap();
   const [hasZoomed, setHasZoomed] = useState(false);
+  const defaultColor = '#3388ff';
 
-
-  // Compute dynamic range for selected metric
   const { minVal, maxVal } = useMemo(() => {
     if (!dataOption) return { minVal: 0, maxVal: 1 };
     const accessor = dataAccessors[dataOption];
@@ -128,39 +127,34 @@ function CatchmentLayers({
       plots = areas.flatMap(a => a.plots);
     }
     const values = plots.map(accessor).filter(v => typeof v === 'number');
-    const min = values.length ? Math.min(...values) : 0;
-    const max = values.length ? Math.max(...values) : 1;
-    return { minVal: Math.floor(min), maxVal: Math.ceil(max) };
+    return {
+      minVal: values.length ? Math.floor(Math.min(...values)) : 0,
+      maxVal: values.length ? Math.ceil(Math.max(...values)) : 1
+    };
   }, [areas, activeAreaId, dataOption]);
 
-  // Viridis colour scale
-  const getColor = value => {
-    return chroma
-      .scale('viridis')
-      .domain([minVal, maxVal])(value)
-      .hex();
-  };
+  const getColor = value =>
+    chroma.scale('viridis').domain([minVal, maxVal])(value).hex();
 
   useEffect(() => {
     if (!areas.length || !recenterSignal) return;
     setHasZoomed(false);
-
     let coords = [];
     if (activeAreaId) {
-      const a = areas.find(x => x.id === activeAreaId);
-      if (a?.geom?.coordinates) coords = flipPolygonCoordinates(a.geom).flat();
+      const area = areas.find(a => a.id === activeAreaId);
+      coords = area?.geom?.coordinates
+        ? area.geom.coordinates.flatMap(ring => ring.map(([lng, lat]) => [lat, lng]))
+        : [];
     } else {
-      areas.forEach(a => {
-        if (a.geom?.coordinates) coords.push(...flipPolygonCoordinates(a.geom).flat());
-      });
+      coords = areas.flatMap(a =>
+        a.geom?.coordinates
+          ? a.geom.coordinates.flatMap(ring => ring.map(([lng, lat]) => [lat, lng]))
+          : []
+      );
     }
-
     const doFly = () => {
       if (coords.length) {
-        map.flyToBounds(
-          L.latLngBounds(coords).pad(0.2),
-          { duration: 1 }
-        );
+        map.flyToBounds(L.latLngBounds(coords).pad(0.2), { duration: 1 });
         map.once('moveend', () => {
           setHasZoomed(true);
           onRecenterHandled();
@@ -170,7 +164,6 @@ function CatchmentLayers({
         onRecenterHandled();
       }
     };
-
     if (map._loaded) doFly();
     else map.once('load', doFly);
   }, [areas, activeAreaId, map, recenterSignal, onRecenterHandled]);
@@ -178,95 +171,97 @@ function CatchmentLayers({
   return (
     <>
       <BaseLayers />
-      {areas.map(area => area.geom?.coordinates && (
-        <React.Fragment key={area.id}>
-          <Polygon
-            positions={flipPolygonCoordinates(area.geom)}
-            pathOptions={{
-              fillOpacity: area.id === activeAreaId ? 0.5 : 0.25,
-              color: area.id === activeAreaId ? '#2b8cbe' : '#3388ff', // unchanged
-            }}
-            eventHandlers={
-              area.id === activeAreaId && hasZoomed
-                ? {}                            // disable click and fly to on the polygon when it is already zoomed into the area
-                : { click: () => onAreaClick(area.id, true) }
-            }
-          >
-            {area.id !== activeAreaId && (
-              <Tooltip permanent interactive eventHandlers={{ click: () => onAreaClick(area.id, true) }}>
-                {area.name}
-              </Tooltip>
-            )}
-          </Polygon>
 
-          {area.id === activeAreaId && hasZoomed && area.plots.map(plot => {
-            const coord = plot.geom?.['4326'];
-            if (!coord) return null;
-            const { x: lon, y: lat } = coord;
-            const accessor = dataAccessors[dataOption];
-            const value = accessor(plot);
-            const color = getColor(value);
+      {areas.map(area => {
+        if (!area.geom?.coordinates) return null;
+        const positions = area.geom.coordinates.map(ring => ring.map(([lng, lat]) => [lat, lng]));
+        const isActive = area.id === activeAreaId;
 
-            return (
-              <CircleMarker
-                key={plot.id}
-                center={[lat, lon]}
-                pathOptions={{ color, fillColor: color, fillOpacity: 1 }}
-                radius={Math.sqrt(plot.socStock)}
-              >
-                <Popup>
-                  <strong>{plot.name}</strong><br />
-                  Total depth: {plot.totalDepth} cm<br />
-                  Samples: {plot.sampleCount}<br />
-                  <hr />
-                  Mean C: {plot.meanC.toFixed(2)} %<br />
-                  SOC stock: {plot.socStock.toFixed(1)} Mg ha⁻¹<br />
-                </Popup>
-              </CircleMarker>
-            );
-          })}
-        </React.Fragment>
-      ))}
-      <Legend selectedData={dataOption} areas={areas} activeAreaId={activeAreaId} />
+        return (
+          <React.Fragment key={area.id}>
+            <Polygon
+              positions={positions}
+              pathOptions={{
+                fillOpacity: isActive ? 0.5 : 0.25,
+                color: isActive ? '#2b8cbe' : defaultColor
+              }}
+              eventHandlers={
+                isActive && hasZoomed
+                  ? {}
+                  : { click: () => onAreaClick(area.id, true) }
+              }
+            >
+              {!isActive && (
+                <Tooltip
+                  permanent
+                  interactive
+                  eventHandlers={{ click: () => onAreaClick(area.id, true) }}
+                >
+                  {area.name}
+                </Tooltip>
+              )}
+            </Polygon>
+
+            {isActive && hasZoomed && (dataOption === 'SOC' || dataOption === 'pH') &&
+              area.plots.map(plot => {
+                const coord = plot.geom?.['4326'];
+                if (!coord) return null;
+                const { x: lon, y: lat } = coord;
+                const value = dataAccessors[dataOption](plot);
+                const color = getColor(value);
+                return (
+                  <CircleMarker
+                    key={plot.id}
+                    center={[lat, lon]}
+                    pathOptions={{ color, fillColor: color, fillOpacity: 1 }}
+                    radius={Math.sqrt(plot.socStock)}
+                  >
+                    <Popup>
+                      <strong>{plot.name}</strong><br />
+                      Total depth: {plot.totalDepth} cm<br />
+                      Samples: {plot.sampleCount}<br />
+                      <hr />
+                      Mean C: {plot.meanC.toFixed(2)} %<br />
+                      SOC stock: {plot.socStock.toFixed(1)} Mg ha⁻¹
+                    </Popup>
+                  </CircleMarker>
+                );
+              })}
+
+            {isActive && hasZoomed &&
+              (dataOption === 'T' || dataOption === 'Soil moisture') &&
+              area.sensors.map(sensor => {
+                const coord = sensor.geom?.['4326'];
+                if (!coord) return null;
+                const { x: lon, y: lat } = coord;
+                return (
+                  <Marker
+                    key={sensor.id}
+                    position={[lat, lon]}
+                    zIndexOffset={1000}
+                  >
+                    <Popup>
+                      <strong>{sensor.name}</strong><br />
+                      {dataOption}: {sensor[dataOption] ?? 'N/A'}
+                    </Popup>
+                  </Marker>
+                );
+              })}
+
+          </React.Fragment>
+        );
+      })}
+
+      <Legend
+        selectedData={dataOption}
+        areas={areas}
+        activeAreaId={activeAreaId}
+      />
     </>
   );
 }
 
-// {area.id === activeAreaId && hasZoomed && area.plots.map(plot => {
-//   const coord = plot.geom?.['4326'];
-//   if (!coord) return null;
-//   const { x: lon, y: lat } = coord;
-//   const value = dataOption === 'SOC' ? plot.socStock : dataAccessors[dataOption](plot);
-//   const color = dataOption === 'SOC' ? getColor(value) : markerStatic;
 
-//   return (
-//     <CircleMarker
-//       key={plot.id}
-//       center={[lat, lon]}
-//       pathOptions={{ color, fillColor: color, fillOpacity: 1 }}
-//       radius={Math.sqrt(plot.socStock)}
-//     >
-//       <Popup>
-//         <strong>{plot.name}</strong><br />
-//         Total depth: {plot.totalDepth} cm<br />
-//         Samples: {plot.sampleCount}<br />
-//         <hr />
-//         Mean C: {plot.meanC.toFixed(2)} %<br />
-//         SOC stock: {plot.socStock.toFixed(1)} Mg ha⁻¹<br />
-//         {/* pH: {plot.pH.toFixed(2)}<br /> */}
-//         {/* Temperature: {plot.temperature.toFixed(1)} °C<br /> */}
-//         {/* Soil moisture: {plot.soilMoisture.toFixed(1)} %<br /> */}
-//       </Popup>
-//     </CircleMarker>
-//   );
-// })}
-// </React.Fragment>
-// ) : null
-// )}
-// <Legend selectedData={dataOption} areas={areas} activeAreaId={activeAreaId} />
-// </>
-// );
-// }
 export default function App() {
   const [sidebarOpen, setSidebarOpen] = useState(false);
   const [activeSection, setActiveSection] = useState('cover');
