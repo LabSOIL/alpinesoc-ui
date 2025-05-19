@@ -13,6 +13,7 @@ import ChevronLeftIcon from '@mui/icons-material/ChevronLeft';
 import ChevronRightIcon from '@mui/icons-material/ChevronRight';
 import 'leaflet/dist/leaflet.css';
 import { BaseLayers } from './maps/Layers';
+import chroma from 'chroma-js';
 
 const initialMenuItemsConfig = [
   { key: 'cover', label: 'Home' },
@@ -41,10 +42,12 @@ const flipPolygonCoordinates = geom =>
 function Legend({ selectedData, areas, activeAreaId }) {
   const map = useMap();
 
+  // Viridis colour scale helper
   const getColorOnScale = (value, min, max) => {
-    const ratio = (value - min) / (max - min);
-    const hue = (1 - ratio) * 120;
-    return `hsl(${hue}, 100%, 50%)`;
+    return chroma
+      .scale('viridis')
+      .domain([min, max])(value)
+      .hex();
   };
 
   useEffect(() => {
@@ -70,9 +73,9 @@ function Legend({ selectedData, areas, activeAreaId }) {
 
     const staticColor = dataOptions.find(o => o.key === selectedData)?.color;
     let gradientStyle;
+
     const start = getColorOnScale(minVal, minVal, maxVal);
     const end = getColorOnScale(maxVal, minVal, maxVal);
-    gradientStyle = `background: linear-gradient(to top, ${start}, ${end});`;
 
     const legend = L.control({ position: 'bottomright' });
     legend.onAdd = () => {
@@ -81,7 +84,7 @@ function Legend({ selectedData, areas, activeAreaId }) {
         <h4>${selectedData}</h4>
         <div style="display:flex; align-items:center;">
           <div class="legend-scale"
-               style="${gradientStyle} width:1rem; height:6rem; margin-right:0.5rem;"></div>
+               style="background: linear-gradient(to top, ${start}, ${end}); width:1rem; height:6rem; margin-right:0.5rem;"></div>
           <div class="legend-labels"
                style="display:flex; flex-direction:column; justify-content:space-between; height:6rem;">
             <span>${maxVal}</span>
@@ -100,6 +103,7 @@ function Legend({ selectedData, areas, activeAreaId }) {
   return null;
 }
 
+
 function CatchmentLayers({
   areas,
   activeAreaId,
@@ -110,7 +114,7 @@ function CatchmentLayers({
 }) {
   const map = useMap();
   const [hasZoomed, setHasZoomed] = useState(false);
-  const defaultColor = '#3388ff';
+
 
   // Compute dynamic range for selected metric
   const { minVal, maxVal } = useMemo(() => {
@@ -129,10 +133,12 @@ function CatchmentLayers({
     return { minVal: Math.floor(min), maxVal: Math.ceil(max) };
   }, [areas, activeAreaId, dataOption]);
 
+  // Viridis colour scale
   const getColor = value => {
-    const ratio = (value - minVal) / (maxVal - minVal);
-    const hue = (1 - ratio) * 120;
-    return `hsl(${hue}, 100%, 50%)`;
+    return chroma
+      .scale('viridis')
+      .domain([minVal, maxVal])(value)
+      .hex();
   };
 
   useEffect(() => {
@@ -178,9 +184,13 @@ function CatchmentLayers({
             positions={flipPolygonCoordinates(area.geom)}
             pathOptions={{
               fillOpacity: area.id === activeAreaId ? 0.5 : 0.25,
-              color: area.id === activeAreaId ? '#2b8cbe' : defaultColor,
+              color: area.id === activeAreaId ? '#2b8cbe' : '#3388ff', // unchanged
             }}
-            eventHandlers={{ click: () => onAreaClick(area.id, true) }}
+            eventHandlers={
+              area.id === activeAreaId && hasZoomed
+                ? {}                            // disable click and fly to on the polygon when it is already zoomed into the area
+                : { click: () => onAreaClick(area.id, true) }
+            }
           >
             {area.id !== activeAreaId && (
               <Tooltip permanent interactive eventHandlers={{ click: () => onAreaClick(area.id, true) }}>
@@ -195,7 +205,7 @@ function CatchmentLayers({
             const { x: lon, y: lat } = coord;
             const accessor = dataAccessors[dataOption];
             const value = accessor(plot);
-            const color = dataOption ? getColor(value) : defaultColor;
+            const color = getColor(value);
 
             return (
               <CircleMarker
@@ -211,9 +221,6 @@ function CatchmentLayers({
                   <hr />
                   Mean C: {plot.meanC.toFixed(2)} %<br />
                   SOC stock: {plot.socStock.toFixed(1)} Mg ha⁻¹<br />
-                  {/* pH: {plot.pH.toFixed(2)}<br /> */}
-                  {/* Temperature: {plot.temperature.toFixed(1)} °C<br /> */}
-                  {/* Soil moisture: {plot.soilMoisture.toFixed(1)} % */}
                 </Popup>
               </CircleMarker>
             );
@@ -224,6 +231,7 @@ function CatchmentLayers({
     </>
   );
 }
+
 // {area.id === activeAreaId && hasZoomed && area.plots.map(plot => {
 //   const coord = plot.geom?.['4326'];
 //   if (!coord) return null;
