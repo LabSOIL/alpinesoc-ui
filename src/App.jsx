@@ -16,65 +16,48 @@ import 'leaflet/dist/leaflet.css';
 import { BaseLayers } from './maps/Layers';
 import chroma from 'chroma-js';
 
-const initialMenuItemsConfig = [
-  { key: 'cover', label: 'Home' },
-  { key: 'catchment', label: 'Catchment', subItems: [] },
-  { key: 'data', label: 'Data', subItems: [] },
-  { key: 'experimental', label: 'Experimental View' },
-];
-
 const dataOptions = [
   { key: 'SOC', color: '#e41a1c' },
   { key: 'pH', color: '#377eb8' },
-  { key: 'T', color: '#4daf4a' },
-  { key: 'Soil moisture', color: '#984ea3' },
+  { key: 'Temperature', color: '#4daf4a' },
+  { key: 'Moisture', color: '#984ea3' },
 ];
+const modelOptions = [
+  { key: 'model1', label: 'Model 1' },
+  { key: 'model2', label: 'Model 2' },
+  { key: 'model3', label: 'Model 3' },
+];
+
 const dataAccessors = {
   SOC: plot => plot.socStock,
   pH: plot => plot.pH,
-  T: plot => plot.temperature,
-  'Soil moisture': plot => plot.soilMoisture,
+  Temperature: plot => plot.temperature,
+  Moisture: plot => plot.soilMoisture,
+  model1: () => null,
+  model2: () => null,
+  model3: () => null,
 };
-
-const flipCoordinates = coords => coords.map(([lng, lat]) => [lat, lng]);
-const flipPolygonCoordinates = geom =>
-  geom.coordinates.map(ring => flipCoordinates(ring));
 
 function Legend({ selectedData, areas, activeAreaId }) {
   const map = useMap();
 
-  // Viridis colour scale helper
-  const getColorOnScale = (value, min, max) => {
-    return chroma
-      .scale('viridis')
-      .domain([min, max])(value)
-      .hex();
-  };
+  const getColorOnScale = (value, min, max) =>
+    chroma.scale('viridis').domain([min, max])(value).hex();
 
   useEffect(() => {
     document.querySelectorAll('.info.legend').forEach(el => el.remove());
-    if (!selectedData) return;
+    if (!selectedData || !dataAccessors[selectedData]) return;
 
-    const accessor = dataAccessors[selectedData];
-    if (!accessor) return;
+    let plots = activeAreaId
+      ? areas.find(a => a.id === activeAreaId)?.plots || []
+      : areas.flatMap(a => a.plots);
 
-    let plots = [];
-    if (activeAreaId) {
-      const area = areas.find(a => a.id === activeAreaId);
-      plots = area?.plots || [];
-    } else {
-      plots = areas.flatMap(a => a.plots);
-    }
-    const values = plots.map(accessor).filter(v => typeof v === 'number');
+    const values = plots.map(dataAccessors[selectedData]).filter(v => typeof v === 'number');
     if (!values.length) return;
 
     const minVal = Math.floor(Math.min(...values));
     const maxVal = Math.ceil(Math.max(...values));
     const midVal = Math.round((minVal + maxVal) / 2);
-
-    const staticColor = dataOptions.find(o => o.key === selectedData)?.color;
-    let gradientStyle;
-
     const start = getColorOnScale(minVal, minVal, maxVal);
     const end = getColorOnScale(maxVal, minVal, maxVal);
 
@@ -119,13 +102,9 @@ function CatchmentLayers({
   const { minVal, maxVal } = useMemo(() => {
     if (!dataOption) return { minVal: 0, maxVal: 1 };
     const accessor = dataAccessors[dataOption];
-    let plots = [];
-    if (activeAreaId) {
-      const area = areas.find(a => a.id === activeAreaId);
-      plots = area?.plots || [];
-    } else {
-      plots = areas.flatMap(a => a.plots);
-    }
+    let plots = activeAreaId
+      ? areas.find(a => a.id === activeAreaId)?.plots || []
+      : areas.flatMap(a => a.plots);
     const values = plots.map(accessor).filter(v => typeof v === 'number');
     return {
       minVal: values.length ? Math.floor(Math.min(...values)) : 0,
@@ -139,19 +118,11 @@ function CatchmentLayers({
   useEffect(() => {
     if (!areas.length || !recenterSignal) return;
     setHasZoomed(false);
-    let coords = [];
-    if (activeAreaId) {
-      const area = areas.find(a => a.id === activeAreaId);
-      coords = area?.geom?.coordinates
-        ? area.geom.coordinates.flatMap(ring => ring.map(([lng, lat]) => [lat, lng]))
-        : [];
-    } else {
-      coords = areas.flatMap(a =>
-        a.geom?.coordinates
-          ? a.geom.coordinates.flatMap(ring => ring.map(([lng, lat]) => [lat, lng]))
-          : []
-      );
-    }
+    const coords = (activeAreaId
+      ? areas.find(a => a.id === activeAreaId)?.geom?.coordinates || []
+      : areas.flatMap(a => a.geom?.coordinates || [])
+    ).flatMap(ring => ring.map(([lng, lat]) => [lat, lng]));
+
     const doFly = () => {
       if (coords.length) {
         map.flyToBounds(L.latLngBounds(coords).pad(0.2), { duration: 1 });
@@ -174,7 +145,9 @@ function CatchmentLayers({
 
       {areas.map(area => {
         if (!area.geom?.coordinates) return null;
-        const positions = area.geom.coordinates.map(ring => ring.map(([lng, lat]) => [lat, lng]));
+        const positions = area.geom.coordinates.map(ring =>
+          ring.map(([lng, lat]) => [lat, lng])
+        );
         const isActive = area.id === activeAreaId;
 
         return (
@@ -186,9 +159,7 @@ function CatchmentLayers({
                 color: isActive ? '#2b8cbe' : defaultColor
               }}
               eventHandlers={
-                isActive && hasZoomed
-                  ? {}
-                  : { click: () => onAreaClick(area.id, true) }
+                isActive && hasZoomed ? {} : { click: () => onAreaClick(area.id, true) }
               }
             >
               {!isActive && (
@@ -229,7 +200,7 @@ function CatchmentLayers({
               })}
 
             {isActive && hasZoomed &&
-              (dataOption === 'T' || dataOption === 'Soil moisture') &&
+              (dataOption === 'Temperature' || dataOption === 'Moisture') &&
               area.sensors.map(sensor => {
                 const coord = sensor.geom?.['4326'];
                 if (!coord) return null;
@@ -261,17 +232,20 @@ function CatchmentLayers({
   );
 }
 
-
 export default function App() {
   const [sidebarOpen, setSidebarOpen] = useState(false);
   const [activeSection, setActiveSection] = useState('cover');
   const [activeAreaId, setActiveAreaId] = useState(null);
   const [selectedData, setSelectedData] = useState(null);
-  const [menuItems, setMenuItems] = useState(initialMenuItemsConfig);
+  const [viewMode, setViewMode] = useState('experimental'); // 'experimental' or 'model'
+  const [menuItems, setMenuItems] = useState([
+    { key: 'cover', label: 'Home' },
+    { key: 'catchment', label: 'Catchment', subItems: [] },
+    { key: 'data', label: 'Data', subItems: [] },
+  ]);
   const [areas, setAreas] = useState([]);
   const [shouldRecenter, setShouldRecenter] = useState(false);
   const sectionsRef = useRef([]);
-  const [stockRange, setStockRange] = useState([0, 0]);
 
   const scrollTo = key => {
     const idx = menuItems.findIndex(i => i.key === key);
@@ -285,13 +259,12 @@ export default function App() {
         const enriched = data.map(area => ({
           ...area,
           plots: area.plots.map(plot => {
-            const s = plot.aggregated_samples['1']; // Use only the first replicate set
+            const s = plot.aggregated_samples['1'];
             return {
               ...plot,
               socStock: s.soc_stock_megag_per_hectare,
               meanC: s.mean_c,
               totalDepth: s.total_depth,
-              // pH: s.pH,
               temperature: s.temperature,
               soilMoisture: s.soil_moisture,
               sampleCount: s.sample_count
@@ -304,6 +277,7 @@ export default function App() {
       .catch(console.error);
   }, []);
 
+  // build catchment submenu when areas fetched or section changes
   useEffect(() => {
     if (activeSection === 'catchment' && areas.length) {
       const subs = areas.map(a => ({ key: a.id, label: a.name }));
@@ -313,19 +287,32 @@ export default function App() {
     }
   }, [activeSection, areas]);
 
-
+  // build data submenu on area or mode change
   useEffect(() => {
-    setMenuItems(m => m.map(i =>
-      i.key === 'data'
-        ? {
-          ...i,
-          subItems: activeAreaId
-            ? dataOptions.map(o => ({ key: o.key, label: o.key }))
-            : []
-        }
-        : i
-    ));
-  }, [activeAreaId]);
+    setMenuItems(m =>
+      m.map(i =>
+        i.key === 'data'
+          ? {
+            ...i,
+            subItems: activeAreaId
+              ? viewMode === 'experimental'
+                ? dataOptions.map(o => ({ key: o.key, label: o.key }))
+                : modelOptions
+              : []
+          }
+          : i
+      )
+    );
+  }, [activeAreaId, viewMode]);
+
+  // reset selectedData when mode or area changes
+  useEffect(() => {
+    if (!activeAreaId) return;
+    const firstKey = viewMode === 'experimental'
+      ? dataOptions[0].key
+      : modelOptions[0].key;
+    setSelectedData(firstKey);
+  }, [viewMode, activeAreaId]);
 
   useEffect(() => {
     const io = new IntersectionObserver(es => {
@@ -342,17 +329,17 @@ export default function App() {
   const selectArea = (id, recenter = false) => {
     if (recenter) setShouldRecenter(true);
     setActiveAreaId(id);
-    setSelectedData(dataOptions[0].key);
+    // selectedData handled by effect
   };
+
   const clearArea = () => {
     setActiveAreaId(null);
     setSelectedData(null);
     setShouldRecenter(true);
     scrollTo('catchment');
   };
-  const selectData = key => setSelectedData(key);
 
-  const activeArea = areas.find(a => a.id === activeAreaId);
+  const selectData = key => setSelectedData(key);
 
   return (
     <div className="App">
@@ -374,26 +361,24 @@ export default function App() {
                   type="button"
                   className="menu-btn"
                   onClick={() => scrollTo(item.key)}
-                >{item.label}</button>
+                >
+                  {item.label}
+                </button>
 
                 {item.key === 'catchment' && (
                   <ul className="sub-menu">
                     {activeAreaId
                       ? <li className="active-area">
                         <span className="selected-area">
-                          {activeArea?.name}
-                          <button
-                            className="remove-selected"
-                            onClick={clearArea}
-                          >✕</button>
+                          {areas.find(a => a.id === activeAreaId)?.name}
+                          <button className="remove-selected" onClick={clearArea}>✕</button>
                         </span>
                       </li>
                       : item.subItems.map(s => (
                         <li key={s.key}>
-                          <button
-                            className="submenu-btn"
-                            onClick={() => selectArea(s.key, true)}
-                          >{s.label}</button>
+                          <button className="submenu-btn" onClick={() => selectArea(s.key, true)}>
+                            {s.label}
+                          </button>
                         </li>
                       ))
                     }
@@ -401,16 +386,36 @@ export default function App() {
                 )}
 
                 {item.key === 'data' && activeAreaId && (
-                  <ul className="sub-menu">
-                    {item.subItems.map(s => (
-                      <li key={s.key}>
-                        <button
-                          className={`submenu-btn ${selectedData === s.key ? 'active-data' : ''}`}
-                          onClick={() => selectData(s.key)}
-                        >{s.label}</button>
-                      </li>
-                    ))}
-                  </ul>
+                  <>
+                    <div className="mode-switch">
+                      <button
+                        type="button"
+                        className={`mode-btn ${viewMode === 'experimental' ? 'active' : ''}`}
+                        onClick={() => setViewMode('experimental')}
+                      >
+                        Experimental
+                      </button>
+                      <button
+                        type="button"
+                        className={`mode-btn ${viewMode === 'model' ? 'active' : ''}`}
+                        onClick={() => setViewMode('model')}
+                      >
+                        Model
+                      </button>
+                    </div>
+                    <ul className="sub-menu">
+                      {item.subItems.map(s => (
+                        <li key={s.key}>
+                          <button
+                            className={`submenu-btn ${selectedData === s.key ? 'active-data' : ''}`}
+                            onClick={() => selectData(s.key)}
+                          >
+                            {s.label}
+                          </button>
+                        </li>
+                      ))}
+                    </ul>
+                  </>
                 )}
               </li>
             ))}
@@ -435,7 +440,9 @@ export default function App() {
             className="down-arrow"
             onClick={() => scrollTo('catchment')}
             aria-label="Scroll down"
-          >↓</button>
+          >
+            ↓
+          </button>
           <div className="attribution">
             <a href="https://www.epfl.ch" target="_blank" rel="noopener noreferrer">
               <img src="/epfl.png" alt="EPFL Logo" style={{ height: '2rem', marginRight: '1rem' }} />
@@ -452,7 +459,7 @@ export default function App() {
           data-section="catchment"
           ref={el => sectionsRef.current[1] = el}
         >
-          <h2>{activeArea ? activeArea.name : 'Catchment'}</h2>
+          <h2>{areas.find(a => a.id === activeAreaId)?.name || 'Catchment'}</h2>
           <div className="map-wrapper">
             <MapContainer
               center={[46.326, 7.808]}
@@ -464,32 +471,10 @@ export default function App() {
                 areas={areas}
                 activeAreaId={activeAreaId}
                 dataOption={selectedData}
-                stockRange={stockRange}
                 onAreaClick={selectArea}
                 recenterSignal={shouldRecenter}
                 onRecenterHandled={() => setShouldRecenter(false)}
               />
-            </MapContainer>
-          </div>
-        </section>
-
-        {/* EXPERIMENTAL */}
-        <section
-          className="section"
-          data-section="experimental"
-          ref={el => sectionsRef.current[2] = el}
-        >
-          <h2>Experimental View</h2>
-          <div className="map-wrapper">
-            <MapContainer center={[46.326, 7.808]} zoom={12} scrollWheelZoom className="leaflet-container">
-              <BaseLayers />
-              {areas.map(a => a.geom?.coordinates && (
-                <Polygon
-                  key={a.id}
-                  positions={flipPolygonCoordinates(a.geom)}
-                  pathOptions={{ fillOpacity: 0.25, color: '#3388ff' }}
-                />
-              ))}
             </MapContainer>
           </div>
         </section>
