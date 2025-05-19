@@ -23,9 +23,13 @@ const dataOptions = [
   { key: 'Moisture', color: '#984ea3' },
 ];
 const modelOptions = [
-  { key: 'model1', label: 'Model 1' },
-  { key: 'model2', label: 'Model 2' },
-  { key: 'model3', label: 'Model 3' },
+  { key: 'socStock', label: 'Output SOC stock' },
+  { key: 'soilType', label: 'Input Soil type' },
+  { key: 'vegetation', label: 'Input Vegetation' },
+  { key: 'dem', label: 'Input DEM' },
+  { key: 'curvature', label: 'Input Curvature' },
+  { key: 'lithology', label: 'Input Lithology' },
+  { key: 'aerialPhoto', label: 'Input Aerial photo' },
 ];
 
 const dataAccessors = {
@@ -33,9 +37,13 @@ const dataAccessors = {
   pH: plot => plot.pH,
   Temperature: plot => plot.temperature,
   Moisture: plot => plot.soilMoisture,
-  model1: () => null,
-  model2: () => null,
-  model3: () => null,
+  socStock: plot => plot.socStock,
+  soilType: plot => plot.soilType,
+  vegetation: plot => plot.vegetation,
+  dem: plot => plot.dem,
+  curvature: plot => plot.curvature,
+  lithology: plot => plot.lithology,
+  aerialPhoto: plot => plot.aerialPhoto,
 };
 
 function Legend({ selectedData, areas, activeAreaId }) {
