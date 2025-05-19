@@ -250,11 +250,12 @@ body,
 }
 
 .map-wrapper {
-  width: 100%;
+  width: 95%;
   display: flex;
   justify-content: center;
   padding: 2rem 0;
 }
+
 
 .leaflet-container {
   width: 80%;
@@ -304,4 +305,30 @@ body,
 
 .mode-btn.active {
   color: #fff;
+}
+
+.map-with-chart {
+  position: relative;
+  display: flex;
+  flex-direction: column;
+  height: 100vh;
+}
+
+.leaflet-container {
+  flex: 1;
+  width: 100%;
+}
+
+.overlay-chart {
+  position: absolute;
+  bottom: 1rem;
+  left: 1rem;
+  right: 1rem;
+  height: 200px;
+  /* fixed chart height */
+  background: white;
+  box-shadow: 0 2px 8px rgba(0, 0, 0, 0.2);
+  border-radius: 4px;
+  overflow: hidden;
+  z-index: 1000;
 }

@@ -9,10 +9,12 @@ import {
   Tooltip,
   useMap
 } from 'react-leaflet';
+import 'leaflet/dist/leaflet.css';
 import L from 'leaflet';
 import ChevronLeftIcon from '@mui/icons-material/ChevronLeft';
 import ChevronRightIcon from '@mui/icons-material/ChevronRight';
 import 'leaflet/dist/leaflet.css';
+import TimeseriesPlot from './timeseries/TimeseriesPlot';
 import { BaseLayers } from './maps/Layers';
 import chroma from 'chroma-js';
 
@@ -95,11 +97,12 @@ function Legend({ selectedData, areas, activeAreaId }) {
   return null;
 }
 
-function CatchmentLayers({
+export function CatchmentLayers({
   areas,
   activeAreaId,
   dataOption,
   onAreaClick,
+  onSensorClick,
   recenterSignal,
   onRecenterHandled
 }) {
@@ -207,25 +210,26 @@ function CatchmentLayers({
                 );
               })}
 
-            {isActive && hasZoomed &&
-              (dataOption === 'Temperature' || dataOption === 'Moisture') &&
-              area.sensors.map(sensor => {
-                const coord = sensor.geom?.['4326'];
-                if (!coord) return null;
-                const { x: lon, y: lat } = coord;
-                return (
-                  <Marker
-                    key={sensor.id}
-                    position={[lat, lon]}
-                    zIndexOffset={1000}
-                  >
-                    <Popup>
-                      <strong>{sensor.name}</strong><br />
-                      {dataOption}: {sensor[dataOption] ?? 'N/A'}
-                    </Popup>
-                  </Marker>
-                );
-              })}
+            {isActive && (dataOption === 'Temperature' || dataOption === 'Moisture') && area.sensors.map(sensor => {
+              const coord = sensor.geom?.['4326'];
+              if (!coord) return null;
+              const { x: lon, y: lat } = coord;
+              return (
+                <Marker
+                  key={sensor.id}
+                  position={[lat, lon]}
+                  zIndexOffset={1000}
+                  eventHandlers={{
+                    click: () => onSensorClick(sensor.id),
+                  }}
+                >
+                  <Popup>
+                    <strong>{sensor.name}</strong><br />
+                    {dataOption}: {sensor[dataOption] ?? 'N/A'}
+                  </Popup>
+                </Marker>
+              );
+            })}
 
           </React.Fragment>
         );
@@ -252,6 +256,8 @@ export default function App() {
     { key: 'data', label: 'Data', subItems: [] },
   ]);
   const [areas, setAreas] = useState([]);
+  const [sensorSeries, setSensorSeries] = useState(null);
+
   const [shouldRecenter, setShouldRecenter] = useState(false);
   const sectionsRef = useRef([]);
 
@@ -259,6 +265,16 @@ export default function App() {
   const modBtnRef = useRef(null);
   const [thumbStyle, setThumbStyle] = useState({ left: 0, width: 0 });
 
+  const handleSensorClick = async (sensorId) => {
+    try {
+      const res = await fetch(`/api/public/sensors/${sensorId}`);
+      if (!res.ok) throw new Error('Failed to load sensor data');
+      const json = await res.json();
+      setSensorSeries(json);
+    } catch (err) {
+      console.error(err);
+    }
+  };
 
   useLayoutEffect(() => {
     const updateThumb = () => {
@@ -496,6 +512,8 @@ export default function App() {
         >
           <h2>{areas.find(a => a.id === activeAreaId)?.name || 'Catchment'}</h2>
           <div className="map-wrapper">
+
+            {/* <div className="map-with-chart"> */}
             <MapContainer
               center={[46.326, 7.808]}
               zoom={10}
@@ -507,11 +525,19 @@ export default function App() {
                 activeAreaId={activeAreaId}
                 dataOption={selectedData}
                 onAreaClick={selectArea}
+                onSensorClick={handleSensorClick}
                 recenterSignal={shouldRecenter}
                 onRecenterHandled={() => setShouldRecenter(false)}
               />
             </MapContainer>
+
+            {sensorSeries && (selectedData === 'Temperature' || selectedData === 'Moisture') && (
+              <div className="overlay-chart">
+                <TimeseriesPlot series={sensorSeries} dataOption={selectedData} />
+              </div>
+            )}
           </div>
+          {/* </div> */}
         </section>
       </main>
     </div>
