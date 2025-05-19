@@ -42,11 +42,17 @@ body,
   background: none;
   border: none;
   color: #333;
-  font-size: 2rem;
+  font-size: 1.5rem;
+  /* Reduced font size */
+  padding: 0.25rem 0.5rem;
+  /* Added padding for better control */
+  line-height: 1;
+  /* Ensures no extra vertical space */
   cursor: pointer;
   z-index: 100;
   transition: color 0.2s ease;
 }
+
 
 .sidebar-toggle:hover {
   color: #000;
