@@ -18,6 +18,7 @@ import TimeseriesPlot from './timeseries/TimeseriesPlot';
 import { BaseLayers } from './maps/Layers';
 import chroma from 'chroma-js';
 
+
 const dataOptions = [
   { key: 'SOC', color: '#e41a1c' },
   { key: 'pH', color: '#377eb8' },
