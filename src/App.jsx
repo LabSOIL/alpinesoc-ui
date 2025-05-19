@@ -191,28 +191,45 @@ export function CatchmentLayers({
 
             {isActive && hasZoomed && (dataOption === 'SOC' || dataOption === 'pH') &&
               area.plots.map(plot => {
-                const coord = plot.geom?.['4326'];
-                if (!coord) return null;
-                const { x: lon, y: lat } = coord;
-                const value = dataAccessors[dataOption](plot);
-                const color = getColor(value);
+                const coord = plot.geom?.['4326']
+                if (!coord) return null
+                const { x: lon, y: lat } = coord
+
+                // value is either socStock or pH depending on dataOption
+                const value = dataAccessors[dataOption](plot)
+                const color = getColor(value)
+
+                // radius: sqrt(socStock) for SOC, fixed for pH (you can tweak 6 to taste)
+                const radius = dataOption === 'SOC'
+                  ? Math.sqrt(plot.socStock)
+                  : 6
+
                 return (
                   <CircleMarker
                     key={plot.id}
                     center={[lat, lon]}
                     pathOptions={{ color, fillColor: color, fillOpacity: 1 }}
-                    radius={Math.sqrt(plot.socStock)}
+                    radius={radius}
                   >
                     <Popup>
                       <strong>{plot.name}</strong><br />
-                      Total depth: {plot.totalDepth} cm<br />
-                      Samples: {plot.sampleCount}<br />
-                      <hr />
-                      Mean C: {plot.meanC.toFixed(2)} %<br />
-                      SOC stock: {plot.socStock.toFixed(1)} Mg ha⁻¹
+
+                      {dataOption === 'SOC' ? (
+                        <>
+                          Total depth: {plot.totalDepth} cm<br />
+                          Samples: {plot.sampleCount}<br />
+                          <hr />
+                          Mean C: {plot.meanC.toFixed(2)} %<br />
+                          SOC stock: {plot.socStock.toFixed(1)} Mg ha⁻¹
+                        </>
+                      ) : (
+                        <>
+                          pH: {plot.pH.toFixed(2)}<br />
+                        </>
+                      )}
                     </Popup>
                   </CircleMarker>
-                );
+                )
               })}
 
             {isActive && (dataOption === 'Temperature' || dataOption === 'Moisture') && area.sensors.map(sensor => {
@@ -240,12 +257,14 @@ export function CatchmentLayers({
         );
       })}
 
-      <Legend
-        selectedData={dataOption}
-        colorScale={colorScale}
-        minVal={minVal}
-        maxVal={maxVal}
-      />
+      {(dataOption === 'SOC' || dataOption === 'pH') && (
+        <Legend
+          selectedData={dataOption}
+          colorScale={colorScale}
+          minVal={minVal}
+          maxVal={maxVal}
+        />
+      )}
     </>
   );
 }
@@ -320,7 +339,7 @@ export default function App() {
               temperature: s.temperature,
               soilMoisture: s.soil_moisture,
               sampleCount: s.sample_count,
-              pH: s.pH
+              pH: s.ph
             };
           })
         }));
@@ -414,41 +433,44 @@ export default function App() {
           <ul>
             {menuItems.map(item => (
               <li key={item.key} className={activeSection === item.key ? 'active' : ''}>
-                <button
-                  type="button"
-                  className="menu-btn"
-                  onClick={() => scrollTo(item.key)}
-                >
-                  {item.label}
-                </button>
+                {item.key !== 'data' && (
+                  <button
+                    type="button"
+                    className="menu-btn"
+                    onClick={() => scrollTo(item.key)}
+                  >
+                    {item.label}
+                  </button>
+                )}
 
                 {item.key === 'catchment' && (
                   <ul className="sub-menu">
-                    {activeAreaId
-                      ? <li className="active-area">
-                        <span className="selected-area">
-                          {areas.find(a => a.id === activeAreaId)?.name}
+                    {item.subItems.map(s => (
+                      <li key={s.key} className={activeAreaId === s.key ? 'active-area' : ''}>
+                        <button
+                          className={`submenu-btn ${activeAreaId === s.key ? 'active-data' : ''}`}
+                          onClick={() => selectArea(s.key, true)}
+                        >
+                          {s.label}
+                        </button>
+                        {activeAreaId === s.key && (
                           <button className="remove-selected" onClick={clearArea}>✕</button>
-                        </span>
+                        )}
                       </li>
-                      : item.subItems.map(s => (
-                        <li key={s.key}>
-                          <button className="submenu-btn" onClick={() => selectArea(s.key, true)}>
-                            {s.label}
-                          </button>
-                        </li>
-                      ))
-                    }
+                    ))}
                   </ul>
                 )}
 
                 {item.key === 'data' && activeAreaId && (
                   <>
+                    <hr style={{ width: '90%', margin: '1rem auto', marginLeft: '0', display: 'block' }} />
                     <div className="mode-switch">
+
                       <div
                         className="mode-switch-thumb"
                         style={{ left: thumbStyle.left, width: thumbStyle.width }}
                       />
+
                       <button
                         ref={expBtnRef}
                         className={`mode-btn ${viewMode === 'experimental' ? 'active' : ''}`}
@@ -551,6 +573,6 @@ export default function App() {
           {/* </div> */}
         </section>
       </main>
-    </div>
+    </div >
   );
 }
