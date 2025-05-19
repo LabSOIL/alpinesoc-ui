@@ -9,7 +9,6 @@ import {
   Tooltip,
   useMap
 } from 'react-leaflet';
-import 'leaflet/dist/leaflet.css';
 import L from 'leaflet';
 import ChevronLeftIcon from '@mui/icons-material/ChevronLeft';
 import ChevronRightIcon from '@mui/icons-material/ChevronRight';
@@ -17,7 +16,6 @@ import 'leaflet/dist/leaflet.css';
 import TimeseriesPlot from './timeseries/TimeseriesPlot';
 import { BaseLayers } from './maps/Layers';
 import chroma from 'chroma-js';
-
 
 const dataOptions = [
   { key: 'SOC', color: '#e41a1c' },
@@ -48,29 +46,24 @@ const dataAccessors = {
   lithology: plot => plot.lithology,
   aerialPhoto: plot => plot.aerialPhoto,
 };
-
-function Legend({ selectedData, areas, activeAreaId }) {
+function Legend({ selectedData, colorScale, minVal, maxVal }) {
   const map = useMap();
-
-  const getColorOnScale = (value, min, max) =>
-    chroma.scale('viridis').domain([min, max])(value).hex();
 
   useEffect(() => {
     document.querySelectorAll('.info.legend').forEach(el => el.remove());
-    if (!selectedData || !dataAccessors[selectedData]) return;
+    if (!selectedData) return;
 
-    let plots = activeAreaId
-      ? areas.find(a => a.id === activeAreaId)?.plots || []
-      : areas.flatMap(a => a.plots);
-
-    const values = plots.map(dataAccessors[selectedData]).filter(v => typeof v === 'number');
-    if (!values.length) return;
-
-    const minVal = Math.floor(Math.min(...values));
-    const maxVal = Math.ceil(Math.max(...values));
     const midVal = Math.round((minVal + maxVal) / 2);
-    const start = getColorOnScale(minVal, minVal, maxVal);
-    const end = getColorOnScale(maxVal, minVal, maxVal);
+
+    // sample the viridis scale at 10 steps
+    const STEPS = 10;
+    const samples = colorScale.colors(STEPS);
+    const gradientStops = samples
+      .map((c, i) => {
+        const pct = Math.round((i / (STEPS - 1)) * 100);
+        return `${c} ${pct}%`;
+      })
+      .join(', ');
 
     const legend = L.control({ position: 'bottomright' });
     legend.onAdd = () => {
@@ -79,9 +72,16 @@ function Legend({ selectedData, areas, activeAreaId }) {
         <h4>${selectedData}</h4>
         <div style="display:flex; align-items:center;">
           <div class="legend-scale"
-               style="background: linear-gradient(to top, ${start}, ${end}); width:1rem; height:6rem; margin-right:0.5rem;"></div>
+               style="
+                 background: linear-gradient(to top, ${gradientStops});
+                 width:1rem; height:6rem; margin-right:0.5rem;
+               ">
+          </div>
           <div class="legend-labels"
-               style="display:flex; flex-direction:column; justify-content:space-between; height:6rem;">
+               style="
+                 display:flex; flex-direction:column;
+                 justify-content:space-between; height:6rem;
+               ">
             <span>${maxVal}</span>
             <span>${midVal}</span>
             <span>${minVal}</span>
@@ -93,10 +93,11 @@ function Legend({ selectedData, areas, activeAreaId }) {
     legend.addTo(map);
 
     return () => map.removeControl(legend);
-  }, [map, selectedData, areas, activeAreaId]);
+  }, [map, selectedData, colorScale, minVal, maxVal]);
 
   return null;
 }
+
 
 export function CatchmentLayers({
   areas,
@@ -124,8 +125,11 @@ export function CatchmentLayers({
     };
   }, [areas, activeAreaId, dataOption]);
 
-  const getColor = value =>
-    chroma.scale('viridis').domain([minVal, maxVal])(value).hex();
+  const colorScale = useMemo(
+    () => chroma.scale('viridis').domain([minVal, maxVal]),
+    [minVal, maxVal]
+  );
+  const getColor = value => colorScale(value).hex();
 
   useEffect(() => {
     if (!areas.length || !recenterSignal) return;
@@ -238,8 +242,9 @@ export function CatchmentLayers({
 
       <Legend
         selectedData={dataOption}
-        areas={areas}
-        activeAreaId={activeAreaId}
+        colorScale={colorScale}
+        minVal={minVal}
+        maxVal={maxVal}
       />
     </>
   );
@@ -314,7 +319,8 @@ export default function App() {
               totalDepth: s.total_depth,
               temperature: s.temperature,
               soilMoisture: s.soil_moisture,
-              sampleCount: s.sample_count
+              sampleCount: s.sample_count,
+              pH: s.pH
             };
           })
         }));
@@ -374,19 +380,23 @@ export default function App() {
   }, [activeSection]);
 
   const selectArea = (id, recenter = false) => {
+    setSensorSeries(null);
     if (recenter) setShouldRecenter(true);
     setActiveAreaId(id);
-    // selectedData handled by effect
   };
 
   const clearArea = () => {
+    setSensorSeries(null);
     setActiveAreaId(null);
     setSelectedData(null);
     setShouldRecenter(true);
     scrollTo('catchment');
   };
 
-  const selectData = key => setSelectedData(key);
+  const selectData = key => {
+    setSensorSeries(null);
+    setSelectedData(key);
+  };
 
   return (
     <div className="App">
