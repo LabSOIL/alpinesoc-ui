@@ -67,27 +67,29 @@ function Legend({ selectedData, colorScale, minVal, maxVal }) {
         return `${c} ${pct}%`;
       })
       .join(', ');
-
+    if (selectedData === 'Temperature' ) {
+      selectedData = 'Average temperature<br/>(20 cm)';
+    }
     const legend = L.control({ position: 'bottomright' });
     legend.onAdd = () => {
       const div = L.DomUtil.create('div', 'info legend');
       div.innerHTML = `
-        <h4>${selectedData}</h4>
+        <h4 style="margin-top: 0;">${selectedData}</h4>
         <div style="display:flex; align-items:center;">
           <div class="legend-scale"
-               style="
-                 background: linear-gradient(to top, ${gradientStops});
-                 width:1rem; height:6rem; margin-right:0.5rem;
-               ">
+           style="
+             background: linear-gradient(to top, ${gradientStops});
+             width:1rem; height:6rem; margin-right:0.5rem;
+           ">
           </div>
           <div class="legend-labels"
-               style="
-                 display:flex; flex-direction:column;
-                 justify-content:space-between; height:6rem;
-               ">
-            <span>${maxVal}</span>
-            <span>${midValText !== undefined ? midValText : ''}</span>
-            <span>${minVal}</span>
+           style="
+             display:flex; flex-direction:column;
+             justify-content:space-between; height:6rem;
+           ">
+        <span>${maxVal}</span>
+        <span>${midValText !== undefined ? midValText : ''}</span>
+        <span>${minVal}</span>
           </div>
         </div>
       `;
