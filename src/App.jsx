@@ -105,6 +105,7 @@ export function CatchmentLayers({
   dataOption,
   onAreaClick,
   onSensorClick,
+  onSensorClose,           
   recenterSignal,
   onRecenterHandled
 }) {
@@ -113,15 +114,43 @@ export function CatchmentLayers({
   const defaultColor = '#3388ff';
 
   const { minVal, maxVal } = useMemo(() => {
-    if (!dataOption) return { minVal: 0, maxVal: 1 };
+    // for Temperature/Moisture, read the sensors’ 20 cm bucket
+    if (dataOption === 'Temperature' || dataOption === 'Moisture') {
+      const sensorVals = (activeAreaId
+        ? areas.find(a => a.id === activeAreaId)?.sensors || []
+        : areas.flatMap(a => a.sensors)
+      )
+        .map(s => {
+          const depths =
+            dataOption === 'Temperature'
+              ? s.average_temperature || {}
+              : s.average_moisture    || {};
+          const v20 = depths['20'];
+          return typeof v20 === 'number' ? v20 : null;
+        })
+        .filter(v => v != null);
+
+      if (sensorVals.length) {
+        return {
+          minVal: Math.floor(Math.min(...sensorVals)),
+          maxVal: Math.ceil (Math.max(...sensorVals)),
+        };
+      }
+      return { minVal: 0, maxVal: 1 };
+    }
+
+    // otherwise fall back to your original plot‐based logic (guarded!)
     const accessor = dataAccessors[dataOption];
-    let plots = activeAreaId
+    if (typeof accessor !== 'function') {
+      return { minVal: 0, maxVal: 1 };
+    }
+    const plots = activeAreaId
       ? areas.find(a => a.id === activeAreaId)?.plots || []
       : areas.flatMap(a => a.plots);
-    const values = plots.map(accessor).filter(v => typeof v === 'number');
+    const vals = plots.map(accessor).filter(v => typeof v === 'number');
     return {
-      minVal: values.length ? Math.floor(Math.min(...values)) : 0,
-      maxVal: values.length ? Math.ceil(Math.max(...values)) : 1
+      minVal: vals.length ? Math.floor(Math.min(...vals)) : 0,
+      maxVal: vals.length ? Math.ceil (Math.max(...vals)) : 1,
     };
   }, [areas, activeAreaId, dataOption]);
 
@@ -130,7 +159,14 @@ export function CatchmentLayers({
     [minVal, maxVal]
   );
   const getColor = value => colorScale(value).hex();
-
+  
+  // Derive a nicer legend title
+  const legendTitle = (() => {
+    if (dataOption === 'Temperature') return 'Average temperature (20 cm)';
+    if (dataOption === 'Moisture')    return 'Average moisture (20 cm)';
+    return dataOption;
+  })();
+  
   useEffect(() => {
     if (!areas.length || !recenterSignal) return;
     setHasZoomed(false);
@@ -232,32 +268,51 @@ export function CatchmentLayers({
                 )
               })}
 
-            {isActive && (dataOption === 'Temperature' || dataOption === 'Moisture') && area.sensors.map(sensor => {
-              const coord = sensor.geom?.['4326'];
-              if (!coord) return null;
-              const { x: lon, y: lat } = coord;
-              return (
-                <Marker
-                  key={sensor.id}
-                  position={[lat, lon]}
-                  zIndexOffset={1000}
-                  eventHandlers={{
-                    click: () => onSensorClick(sensor.id),
-                  }}
-                >
-                  <Popup>
-                    <strong>{sensor.name}</strong><br />
-                    {dataOption}: {sensor[dataOption] ?? 'N/A'}
-                  </Popup>
-                </Marker>
-              );
-            })}
+
+{isActive && (dataOption === 'Temperature' || dataOption === 'Moisture') &&
+              area.sensors.map(sensor => {
+                const coord = sensor.geom?.['4326'];
+                if (!coord) return null;
+                const { x: lon, y: lat } = coord;
+                const avgByDepth = dataOption === 'Temperature'
+                  ? sensor.average_temperature
+                  : sensor.average_moisture;
+                const val20 = avgByDepth?.['20'] ?? null;
+                const color = val20 !== null
+                  ? getColor(val20)
+                  : defaultColor;
+
+                return (
+                  <CircleMarker
+                    key={sensor.id}
+                    center={[lat, lon]}
+                    pathOptions={{ color, fillColor: color, fillOpacity: 1 }}
+                    radius={8}
+                    eventHandlers={{ click: () => onSensorClick(sensor.id) }}
+                  >
+                    <Popup
+                      eventHandlers={{
+                        remove: () => onSensorClose()
+                      }}
+                    >
+                      <strong>{sensor.name}</strong><br/><br/>
+                      <div><strong>Average {dataOption}</strong></div>
+                      {Object.entries(avgByDepth || {}).map(([depth, v]) => (
+                        <div key={depth}>
+                          <strong>{depth} cm</strong>: {v.toFixed(2)}
+                          {dataOption === 'Temperature' ? ' °C' : ' %'}
+                        </div>
+                      ))}
+                    </Popup>
+                  </CircleMarker>
+                );
+              })}
 
           </React.Fragment>
         );
       })}
 
-      {(dataOption === 'SOC' || dataOption === 'pH') && (
+  {['SOC', 'pH', 'Temperature', 'Moisture'].includes(dataOption) && (
         <Legend
           selectedData={dataOption}
           colorScale={colorScale}
@@ -554,23 +609,22 @@ export default function App() {
               className="leaflet-container"
             >
               <CatchmentLayers
-                areas={areas}
-                activeAreaId={activeAreaId}
-                dataOption={selectedData}
-                onAreaClick={selectArea}
-                onSensorClick={handleSensorClick}
-                recenterSignal={shouldRecenter}
-                onRecenterHandled={() => setShouldRecenter(false)}
-              />
-            </MapContainer>
-
-            {sensorSeries && (selectedData === 'Temperature' || selectedData === 'Moisture') && (
-              <div className="overlay-chart">
-                <TimeseriesPlot series={sensorSeries} dataOption={selectedData} />
-              </div>
-            )}
+                      areas={areas}
+                      activeAreaId={activeAreaId}
+                      dataOption={selectedData}
+                      onAreaClick={selectArea}
+                      onSensorClick={handleSensorClick}
+                      onSensorClose={() => setSensorSeries(null)}
+                      recenterSignal={shouldRecenter}
+                      onRecenterHandled={() => setShouldRecenter(false)}
+                    />
+                  </MapContainer>
+                  {sensorSeries && (selectedData === 'Temperature' || selectedData === 'Moisture') && (
+                    <div className="overlay-chart">
+                      <TimeseriesPlot series={sensorSeries} dataOption={selectedData} />
+                    </div>
+                  )}
           </div>
-          {/* </div> */}
         </section>
       </main>
     </div >
