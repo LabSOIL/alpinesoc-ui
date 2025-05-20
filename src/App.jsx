@@ -54,7 +54,10 @@ function Legend({ selectedData, colorScale, minVal, maxVal }) {
     if (!selectedData) return;
 
     const midVal = Math.round((minVal + maxVal) / 2);
-
+    // Disable the midval if it's the same as min or max
+    const midValText = midVal === minVal || midVal === maxVal ? undefined : midVal;
+    
+  
     // sample the viridis scale at 10 steps
     const STEPS = 10;
     const samples = colorScale.colors(STEPS);
@@ -83,7 +86,7 @@ function Legend({ selectedData, colorScale, minVal, maxVal }) {
                  justify-content:space-between; height:6rem;
                ">
             <span>${maxVal}</span>
-            <span>${midVal}</span>
+            <span>${midValText !== undefined ? midValText : ''}</span>
             <span>${minVal}</span>
           </div>
         </div>
