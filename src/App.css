@@ -1,13 +1,16 @@
 /* src/App.css */
+
 html,
 body,
 #root,
 .App {
   height: 100%;
   margin: 0;
-  font-family: sans-serif;
+  /* use Barlow everywhere, with sans-serif fallback */
+  font-family: 'Barlow', sans-serif;
   background: #2a2a2a;
 }
+
 
 .App {
   display: flex;
@@ -338,4 +341,12 @@ body,
   overflow: hidden;
   z-index: 1000;
   opacity: 0.95;
+}
+
+.leaflet-container *,
+.leaflet-control *,
+.leaflet-popup-content *,
+.leaflet-tooltip *,
+.leaflet-bar a {
+  font-family: 'Barlow', sans-serif;
 }

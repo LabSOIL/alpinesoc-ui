@@ -6,6 +6,7 @@ import {
   Polygon,
   CircleMarker,
   Marker,
+  GeoJSON,
   Tooltip,
   useMap
 } from 'react-leaflet';
@@ -54,49 +55,30 @@ function Legend({ selectedData, colorScale, minVal, maxVal }) {
     if (!selectedData) return;
 
     const midVal = Math.round((minVal + maxVal) / 2);
-    // Disable the midval if it's the same as min or max
-    const midValText = midVal === minVal || midVal === maxVal ? undefined : midVal;
-    
-  
-    // sample the viridis scale at 10 steps
+    const midValText = midVal === minVal || midVal === maxVal ? '' : midVal;
     const STEPS = 10;
     const samples = colorScale.colors(STEPS);
-    const gradientStops = samples
-      .map((c, i) => {
-        const pct = Math.round((i / (STEPS - 1)) * 100);
-        return `${c} ${pct}%`;
-      })
+    const stops = samples
+      .map((c, i) => `${c} ${Math.round((i / (STEPS - 1)) * 100)}%`)
       .join(', ');
-    if (selectedData === 'Temperature' ) {
-      selectedData = 'Average temperature<br/>(20 cm)';
-    }
+
     const legend = L.control({ position: 'bottomright' });
     legend.onAdd = () => {
       const div = L.DomUtil.create('div', 'info legend');
       div.innerHTML = `
-        <h4 style="margin-top: 0;">${selectedData}</h4>
-        <div style="display:flex; align-items:center;">
-          <div class="legend-scale"
-           style="
-             background: linear-gradient(to top, ${gradientStops});
-             width:1rem; height:6rem; margin-right:0.5rem;
-           ">
-          </div>
-          <div class="legend-labels"
-           style="
-             display:flex; flex-direction:column;
-             justify-content:space-between; height:6rem;
-           ">
-        <span>${maxVal}</span>
-        <span>${midValText !== undefined ? midValText : ''}</span>
-        <span>${minVal}</span>
+        <h4 style="margin-top:0">${selectedData}</h4>
+        <div style="display:flex; align-items:center">
+          <div style="background:linear-gradient(to top, ${stops}); width:1rem; height:6rem; margin-right:0.5rem"></div>
+          <div style="display:flex; flex-direction:column; justify-content:space-between; height:6rem">
+            <span>${maxVal}</span>
+            <span>${midValText}</span>
+            <span>${minVal}</span>
           </div>
         </div>
       `;
       return div;
     };
     legend.addTo(map);
-
     return () => map.removeControl(legend);
   }, [map, selectedData, colorScale, minVal, maxVal]);
 
@@ -110,13 +92,67 @@ export function CatchmentLayers({
   dataOption,
   onAreaClick,
   onSensorClick,
-  onSensorClose,           
+  onSensorClose,
   recenterSignal,
   onRecenterHandled
 }) {
   const map = useMap();
   const [hasZoomed, setHasZoomed] = useState(false);
+  const [modelGeoJson, setModelGeoJson] = useState(null);
   const defaultColor = '#3388ff';
+
+  // Load the right GeoJSON for the selected area
+  useEffect(() => {
+    // only load on “Input Vegetation” or “Input Soil type”
+    if (!activeAreaId || !['vegetation', 'soilType'].includes(dataOption)) {
+      setModelGeoJson(null);
+      return;
+    }
+
+    const area = areas.find(a => a.id === activeAreaId);
+    if (!area) return;
+
+    // slugify the area name exactly the same way your files are named:
+    const slug = area.name
+      .toLowerCase()
+      .normalize('NFD').replace(/[\u0300-\u036f]/g, '')  // strip accents
+      .replace(/[^a-z0-9]+/g, '_')                     // non-alphanum → _
+      .replace(/^_|_$/g, '');                          // trim leading/trailing _
+
+    const prefix = dataOption === 'vegetation' ? 'vegetation' : 'soil';
+    const url = `${process.env.PUBLIC_URL || ''}/models/${prefix}_${slug}.geojson`;
+
+    console.log('⏳ fetching GeoJSON at:', url);
+
+    fetch(url)
+      .then(res => {
+        if (!res.ok) {
+          throw new Error(`HTTP ${res.status} – could not find ${url}`);
+        }
+        const ct = res.headers.get('content-type') || '';
+        if (!ct.includes('application/json') && !ct.includes('application/geo+json')) {
+          throw new Error(`Expected JSON but got “${ct}”`);
+        }
+        return res.text();
+      })
+      .then(text => {
+        // peek at first few chars so you can see if it’s HTML
+        console.log('📄 raw response starts with:', text.slice(0, 50));
+        try {
+          const json = JSON.parse(text);
+          setModelGeoJson(json);
+        } catch (e) {
+          console.error('❌ invalid JSON:', e);
+          setModelGeoJson(null);
+        }
+      })
+      .catch(err => {
+        console.error('Failed to load model GeoJSON', err);
+        setModelGeoJson(null);
+      });
+  }, [activeAreaId, dataOption, areas]);
+
+
 
   const { minVal, maxVal } = useMemo(() => {
     // for Temperature/Moisture, read the sensors’ 20 cm bucket
@@ -129,7 +165,7 @@ export function CatchmentLayers({
           const depths =
             dataOption === 'Temperature'
               ? s.average_temperature || {}
-              : s.average_moisture    || {};
+              : s.average_moisture || {};
           const v20 = depths['20'];
           return typeof v20 === 'number' ? v20 : null;
         })
@@ -138,7 +174,7 @@ export function CatchmentLayers({
       if (sensorVals.length) {
         return {
           minVal: Math.floor(Math.min(...sensorVals)),
-          maxVal: Math.ceil (Math.max(...sensorVals)),
+          maxVal: Math.ceil(Math.max(...sensorVals)),
         };
       }
       return { minVal: 0, maxVal: 1 };
@@ -155,7 +191,7 @@ export function CatchmentLayers({
     const vals = plots.map(accessor).filter(v => typeof v === 'number');
     return {
       minVal: vals.length ? Math.floor(Math.min(...vals)) : 0,
-      maxVal: vals.length ? Math.ceil (Math.max(...vals)) : 1,
+      maxVal: vals.length ? Math.ceil(Math.max(...vals)) : 1,
     };
   }, [areas, activeAreaId, dataOption]);
 
@@ -164,21 +200,28 @@ export function CatchmentLayers({
     [minVal, maxVal]
   );
   const getColor = value => colorScale(value).hex();
-  
+
   // Derive a nicer legend title
   const legendTitle = (() => {
     if (dataOption === 'Temperature') return 'Average temperature (20 cm)';
-    if (dataOption === 'Moisture')    return 'Average moisture (20 cm)';
+    if (dataOption === 'Moisture') return 'Average moisture (20 cm)';
     return dataOption;
   })();
-  
+
   useEffect(() => {
     if (!areas.length || !recenterSignal) return;
     setHasZoomed(false);
-    const coords = (activeAreaId
-      ? areas.find(a => a.id === activeAreaId)?.geom?.coordinates || []
-      : areas.flatMap(a => a.geom?.coordinates || [])
-    ).flatMap(ring => ring.map(([lng, lat]) => [lat, lng]));
+    let coords;
+    if (activeAreaId) {
+      coords = areas.find(a => a.id === activeAreaId)?.geom?.coordinates || [];
+      coords = coords.flatMap(ring => ring.map(([lng, lat]) => [lat, lng]));
+    } else {
+      // Bounds for all of Switzerland
+      coords = [
+        [45.817, 5.955], // SW
+        [47.808, 10.492] // NE
+      ];
+    }
 
     const doFly = () => {
       if (coords.length) {
@@ -274,7 +317,7 @@ export function CatchmentLayers({
               })}
 
 
-{isActive && (dataOption === 'Temperature' || dataOption === 'Moisture') &&
+            {isActive && (dataOption === 'Temperature' || dataOption === 'Moisture') &&
               area.sensors.map(sensor => {
                 const coord = sensor.geom?.['4326'];
                 if (!coord) return null;
@@ -300,7 +343,7 @@ export function CatchmentLayers({
                         remove: () => onSensorClose()
                       }}
                     >
-                      <strong>{sensor.name}</strong><br/><br/>
+                      <strong>{sensor.name}</strong><br /><br />
                       <div><strong>Average {dataOption}</strong></div>
                       {Object.entries(avgByDepth || {}).map(([depth, v]) => (
                         <div key={depth}>
@@ -317,7 +360,18 @@ export function CatchmentLayers({
         );
       })}
 
-  {['SOC', 'pH', 'Temperature', 'Moisture'].includes(dataOption) && (
+      {modelGeoJson && (
+        <GeoJSON
+          data={modelGeoJson}
+          style={() => ({
+            color: dataOption === 'vegetation' ? '#4daf4a' : '#e41a1c',
+            weight: 2,
+            fillOpacity: 0.3
+          })}
+        />
+      )}
+
+      {['SOC', 'pH', 'Temperature', 'Moisture'].includes(dataOption) && (
         <Legend
           selectedData={dataOption}
           colorScale={colorScale}
@@ -497,9 +551,12 @@ export default function App() {
                   <button
                     type="button"
                     className="menu-btn"
-                    onClick={() => scrollTo(item.key)}
+                    onClick={() => {
+                      if (item.key === 'catchment') clearArea();
+                      scrollTo(item.key);
+                    }}
                   >
-                    {item.label}
+                    {activeSection === item.key ? <strong>{item.label}</strong> : item.label}
                   </button>
                 )}
 
@@ -603,32 +660,32 @@ export default function App() {
           data-section="catchment"
           ref={el => sectionsRef.current[1] = el}
         >
-          <h2>{areas.find(a => a.id === activeAreaId)?.name || 'Catchment'}</h2>
+          <h2>{areas.find(a => a.id === activeAreaId)?.name || 'Select a catchment'}</h2>
           <div className="map-wrapper">
 
             {/* <div className="map-with-chart"> */}
             <MapContainer
-              center={[46.326, 7.808]}
+              bounds={[[45.817, 5.955], [47.808, 10.492]]}
               zoom={10}
               scrollWheelZoom
               className="leaflet-container"
             >
               <CatchmentLayers
-                      areas={areas}
-                      activeAreaId={activeAreaId}
-                      dataOption={selectedData}
-                      onAreaClick={selectArea}
-                      onSensorClick={handleSensorClick}
-                      onSensorClose={() => setSensorSeries(null)}
-                      recenterSignal={shouldRecenter}
-                      onRecenterHandled={() => setShouldRecenter(false)}
-                    />
-                  </MapContainer>
-                  {sensorSeries && (selectedData === 'Temperature' || selectedData === 'Moisture') && (
-                    <div className="overlay-chart">
-                      <TimeseriesPlot series={sensorSeries} dataOption={selectedData} />
-                    </div>
-                  )}
+                areas={areas}
+                activeAreaId={activeAreaId}
+                dataOption={selectedData}
+                onAreaClick={selectArea}
+                onSensorClick={handleSensorClick}
+                onSensorClose={() => setSensorSeries(null)}
+                recenterSignal={shouldRecenter}
+                onRecenterHandled={() => setShouldRecenter(false)}
+              />
+            </MapContainer>
+            {sensorSeries && (selectedData === 'Temperature' || selectedData === 'Moisture') && (
+              <div className="overlay-chart">
+                <TimeseriesPlot series={sensorSeries} dataOption={selectedData} />
+              </div>
+            )}
           </div>
         </section>
       </main>
