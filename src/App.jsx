@@ -34,6 +34,7 @@ const modelOptions = [
   { key: 'aerialPhoto', label: 'Input Aerial photo' },
 ];
 
+
 const dataAccessors = {
   SOC: plot => plot.socStock,
   pH: plot => plot.pH,
@@ -196,7 +197,7 @@ export function CatchmentLayers({
   }, [areas, activeAreaId, dataOption]);
 
   const colorScale = useMemo(
-    () => chroma.scale('viridis').domain([minVal, maxVal]),
+    () => chroma.scale(['#ffffcc', '#c2e699', '#31a354', '#31a354', '#006837']).domain([minVal, maxVal]),
     [minVal, maxVal]
   );
   const getColor = value => colorScale(value).hex();
