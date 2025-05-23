@@ -17,6 +17,7 @@ import 'leaflet/dist/leaflet.css';
 import TimeseriesPlot from './timeseries/TimeseriesPlot';
 import { BaseLayers } from './maps/Layers';
 import chroma from 'chroma-js';
+import IdentifyControl from './maps/IdentifyControl'
 
 const dataOptions = [
   { key: 'SOC', color: '#e41a1c' },
@@ -28,10 +29,6 @@ const modelOptions = [
   { key: 'socStock', label: 'Output SOC stock' },
   { key: 'soilType', label: 'Input Soil type' },
   { key: 'vegetation', label: 'Input Vegetation' },
-  // { key: 'dem', label: 'Input DEM' },
-  // { key: 'curvature', label: 'Input Curvature' },
-  // { key: 'lithology', label: 'Input Lithology' },
-  // { key: 'aerialPhoto', label: 'Input Aerial photo' },
 ];
 
 
@@ -684,7 +681,7 @@ export default function App() {
           </div>
         </section>
 
-        /* CATCHMENT */}
+        {/* CATCHMENT */}
           <section
             className="section"
             data-section="catchment"
@@ -699,15 +696,16 @@ export default function App() {
                 className="leaflet-container"
               >
                 <CatchmentLayers
-            areas={areas}
-            activeAreaId={activeAreaId}
-            dataOption={selectedData}
-            onAreaClick={selectArea}
-            onSensorClick={handleSensorClick}
-            onSensorClose={() => setSensorSeries(null)}
-            recenterSignal={shouldRecenter}
-            onRecenterHandled={() => setShouldRecenter(false)}
+                    areas={areas}
+                    activeAreaId={activeAreaId}
+                    dataOption={selectedData}
+                    onAreaClick={selectArea}
+                    onSensorClick={handleSensorClick}
+                    onSensorClose={() => setSensorSeries(null)}
+                    recenterSignal={shouldRecenter}
+                    onRecenterHandled={() => setShouldRecenter(false)}
                 />
+                <IdentifyControl />
               </MapContainer>
               {sensorSeries && (selectedData === 'Temperature' || selectedData === 'Moisture') && (
                 <div className="overlay-chart">
