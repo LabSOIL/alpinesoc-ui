@@ -28,10 +28,10 @@ const modelOptions = [
   { key: 'socStock', label: 'Output SOC stock' },
   { key: 'soilType', label: 'Input Soil type' },
   { key: 'vegetation', label: 'Input Vegetation' },
-  { key: 'dem', label: 'Input DEM' },
-  { key: 'curvature', label: 'Input Curvature' },
-  { key: 'lithology', label: 'Input Lithology' },
-  { key: 'aerialPhoto', label: 'Input Aerial photo' },
+  // { key: 'dem', label: 'Input DEM' },
+  // { key: 'curvature', label: 'Input Curvature' },
+  // { key: 'lithology', label: 'Input Lithology' },
+  // { key: 'aerialPhoto', label: 'Input Aerial photo' },
 ];
 
 

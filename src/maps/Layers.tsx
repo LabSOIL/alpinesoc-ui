@@ -30,7 +30,7 @@ export const BaseLayers = () => {
                     attribution='&copy; <a href="https://www.swisstopo.admin.ch/">SwissTopo GeoCover</a>'
                     url="https://wmts20.geo.admin.ch/1.0.0/ch.swisstopo.geologie-geocover/default/current/3857/{z}/{x}/{y}.png"
                     opacity={0.5}
-                    maxZoom={16} // Prevents requests for tiles beyond z=16
+                    maxNativeZoom={16} // Specifies the maximum zoom level with available tiles
                 />
             </BaseLayer>
             <BaseLayer name="OpenStreetMap">
