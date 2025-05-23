@@ -52,6 +52,7 @@ function Legend({ selectedData, colorScale, minVal, maxVal }) {
   const map = useMap();
 
   useEffect(() => {
+    // remove old legends
     document.querySelectorAll('.info.legend').forEach(el => el.remove());
     if (!selectedData) return;
 
@@ -66,11 +67,27 @@ function Legend({ selectedData, colorScale, minVal, maxVal }) {
     const legend = L.control({ position: 'bottomright' });
     legend.onAdd = () => {
       const div = L.DomUtil.create('div', 'info legend');
+      // FIXED WIDTH so it never resizes
+      div.style.width = '8rem';
       div.innerHTML = `
-        <h4 style="margin-top:0">${selectedData}</h4>
+        <h4 style="margin-top:0; white-space: normal;">${selectedData}</h4>
         <div style="display:flex; align-items:center">
-          <div style="background:linear-gradient(to top, ${stops}); width:1rem; height:6rem; margin-right:0.5rem"></div>
-          <div style="display:flex; flex-direction:column; justify-content:space-between; height:6rem">
+          <div
+            style="
+              background: linear-gradient(to top, ${stops});
+              width: 1rem;
+              height: 6rem;
+              margin-right: 0.5rem;
+            "
+          ></div>
+          <div
+            style="
+              display: flex;
+              flex-direction: column;
+              justify-content: space-between;
+              height: 6rem;
+            "
+          >
             <span>${maxVal}</span>
             <span>${midValText}</span>
             <span>${minVal}</span>
@@ -100,7 +117,7 @@ export function CatchmentLayers({
   const map = useMap();
   const [hasZoomed, setHasZoomed] = useState(false);
   const [modelGeoJson, setModelGeoJson] = useState(null);
-  const defaultColor = '#3388ff';
+  const defaultColor = '#000000';
 
   // Load the right GeoJSON for the selected area
   useEffect(() => {
@@ -156,7 +173,7 @@ export function CatchmentLayers({
 
 
   const { minVal, maxVal } = useMemo(() => {
-    // for Temperature/Moisture, read the sensors’ 20 cm bucket
+    // for Temperature/Moisture, read the sensors’ 30 cm bucket
     if (dataOption === 'Temperature' || dataOption === 'Moisture') {
       const sensorVals = (activeAreaId
         ? areas.find(a => a.id === activeAreaId)?.sensors || []
@@ -167,8 +184,8 @@ export function CatchmentLayers({
             dataOption === 'Temperature'
               ? s.average_temperature || {}
               : s.average_moisture || {};
-          const v20 = depths['20'];
-          return typeof v20 === 'number' ? v20 : null;
+          const v30 = depths['30'];
+          return typeof v30 === 'number' ? v30 : null;
         })
         .filter(v => v != null);
 
@@ -195,19 +212,25 @@ export function CatchmentLayers({
       maxVal: vals.length ? Math.ceil(Math.max(...vals)) : 1,
     };
   }, [areas, activeAreaId, dataOption]);
+  const legendTitles = {
+    SOC: 'SOC<br/>[MgC/ha]',
+    pH: 'pH',
+    Temperature: 'Avg. temperature (30cm)<br/>[°C]',
+    Moisture: 'Moisture<br/>[raw counts]',
+  };
 
+  // green color ramp for everything
   const colorScale = useMemo(
-    () => chroma.scale(['#ffffcc', '#c2e699', '#31a354', '#31a354', '#006837']).domain([minVal, maxVal]),
+    () =>
+      chroma
+        .scale(['#ffffcc', '#c2e699', '#31a354', '#31a354', '#006837'])
+        .domain([minVal, maxVal]),
     [minVal, maxVal]
   );
-  const getColor = value => colorScale(value).hex();
 
-  // Derive a nicer legend title
-  const legendTitle = (() => {
-    if (dataOption === 'Temperature') return 'Average temperature (20 cm)';
-    if (dataOption === 'Moisture') return 'Average moisture (20 cm)';
-    return dataOption;
-  })();
+  const getColor = (value) => colorScale(value).hex();
+
+  const legendTitle = legendTitles[dataOption] || dataOption;
 
   useEffect(() => {
     if (!areas.length || !recenterSignal) return;
@@ -240,6 +263,9 @@ export function CatchmentLayers({
     else map.once('load', doFly);
   }, [areas, activeAreaId, map, recenterSignal, onRecenterHandled]);
 
+  
+  
+  
   return (
     <>
       <BaseLayers />
@@ -326,10 +352,10 @@ export function CatchmentLayers({
                 const avgByDepth = dataOption === 'Temperature'
                   ? sensor.average_temperature
                   : sensor.average_moisture;
-                const val20 = avgByDepth?.['20'] ?? null;
-                const color = val20 !== null
-                  ? getColor(val20)
-                  : defaultColor;
+                  const val30 = avgByDepth?.['30'] ?? null;
+                  const color = val30 !== null
+                    ? getColor(val30)
+                    : defaultColor;
 
                 return (
                   <CircleMarker
@@ -374,7 +400,7 @@ export function CatchmentLayers({
 
       {['SOC', 'pH', 'Temperature', 'Moisture'].includes(dataOption) && (
         <Legend
-          selectedData={dataOption}
+          selectedData={legendTitle}
           colorScale={colorScale}
           minVal={minVal}
           maxVal={maxVal}
@@ -394,6 +420,7 @@ export default function App() {
     { key: 'cover', label: 'Home' },
     { key: 'catchment', label: 'Catchment', subItems: [] },
     { key: 'data', label: 'Data', subItems: [] },
+    { key: 'about', label: 'About' },
   ]);
   const [areas, setAreas] = useState([]);
   const [sensorSeries, setSensorSeries] = useState(null);
@@ -549,35 +576,35 @@ export default function App() {
             {menuItems.map(item => (
               <li key={item.key} className={activeSection === item.key ? 'active' : ''}>
                 {item.key !== 'data' && (
-                  <button
-                    type="button"
-                    className="menu-btn"
-                    onClick={() => {
-                      if (item.key === 'catchment') clearArea();
-                      scrollTo(item.key);
-                    }}
-                  >
-                    {activeSection === item.key ? <strong>{item.label}</strong> : item.label}
-                  </button>
+                 <button
+                 type="button"
+                 className="menu-btn"
+                 onClick={() => {
+                   if (item.key === 'catchment' || item.key === 'about') clearArea();
+                   scrollTo(item.key);
+                 }}
+               >
+                 {activeSection === item.key ? <strong>{item.label}</strong> : item.label}
+               </button>
                 )}
 
-                {item.key === 'catchment' && (
-                  <ul className="sub-menu">
-                    {item.subItems.map(s => (
-                      <li key={s.key} className={activeAreaId === s.key ? 'active-area' : ''}>
-                        <button
-                          className={`submenu-btn ${activeAreaId === s.key ? 'active-data' : ''}`}
-                          onClick={() => selectArea(s.key, true)}
-                        >
-                          {s.label}
-                        </button>
-                        {activeAreaId === s.key && (
-                          <button className="remove-selected" onClick={clearArea}>✕</button>
-                        )}
-                      </li>
-                    ))}
-                  </ul>
-                )}
+              {item.key === 'catchment' && activeSection === 'catchment' && (
+                <ul className="sub-menu">
+                  {item.subItems.map(s => (
+                    <li key={s.key} className={activeAreaId === s.key ? 'active-area' : ''}>
+                      <button
+                        className={`submenu-btn ${activeAreaId === s.key ? 'active-data' : ''}`}
+                        onClick={() => selectArea(s.key, true)}
+                      >
+                        {s.label}
+                      </button>
+                      {activeAreaId === s.key && (
+                        <button className="remove-selected" onClick={clearArea}>✕</button>
+                      )}
+                    </li>
+                  ))}
+                </ul>
+              )}
 
                 {item.key === 'data' && activeAreaId && (
                   <>
@@ -617,6 +644,8 @@ export default function App() {
                         </li>
                       ))}
                     </ul>
+                    <hr style={{ width: '90%', margin: '1rem auto', marginLeft: '0', display: 'block' }} />
+
                   </>
                 )}
               </li>
@@ -655,40 +684,80 @@ export default function App() {
           </div>
         </section>
 
-        {/* CATCHMENT */}
-        <section
-          className="section"
-          data-section="catchment"
-          ref={el => sectionsRef.current[1] = el}
-        >
-          <h2>{areas.find(a => a.id === activeAreaId)?.name || 'Select a catchment'}</h2>
-          <div className="map-wrapper">
+        /* CATCHMENT */}
+          <section
+            className="section"
+            data-section="catchment"
+            ref={el => sectionsRef.current[1] = el}
+          >
+            <h2>{areas.find(a => a.id === activeAreaId)?.name || 'Select a catchment'}</h2>
+            <div className="map-wrapper">
+              <MapContainer
+                bounds={[[45.817, 5.955], [47.808, 10.492]]}
+                zoom={10}
+                scrollWheelZoom
+                className="leaflet-container"
+              >
+                <CatchmentLayers
+            areas={areas}
+            activeAreaId={activeAreaId}
+            dataOption={selectedData}
+            onAreaClick={selectArea}
+            onSensorClick={handleSensorClick}
+            onSensorClose={() => setSensorSeries(null)}
+            recenterSignal={shouldRecenter}
+            onRecenterHandled={() => setShouldRecenter(false)}
+                />
+              </MapContainer>
+              {sensorSeries && (selectedData === 'Temperature' || selectedData === 'Moisture') && (
+                <div className="overlay-chart">
+            <TimeseriesPlot series={sensorSeries} dataOption={selectedData} />
+                </div>
+              )}
+            </div>
+          </section>
 
-            {/* <div className="map-with-chart"> */}
-            <MapContainer
-              bounds={[[45.817, 5.955], [47.808, 10.492]]}
-              zoom={10}
-              scrollWheelZoom
-              className="leaflet-container"
-            >
-              <CatchmentLayers
-                areas={areas}
-                activeAreaId={activeAreaId}
-                dataOption={selectedData}
-                onAreaClick={selectArea}
-                onSensorClick={handleSensorClick}
-                onSensorClose={() => setSensorSeries(null)}
-                recenterSignal={shouldRecenter}
-                onRecenterHandled={() => setShouldRecenter(false)}
-              />
-            </MapContainer>
-            {sensorSeries && (selectedData === 'Temperature' || selectedData === 'Moisture') && (
-              <div className="overlay-chart">
-                <TimeseriesPlot series={sensorSeries} dataOption={selectedData} />
-              </div>
-            )}
-          </div>
-        </section>
+          {/* ABOUT */}
+          <section
+  className="section about-section"
+  data-section="about"
+  ref={el => sectionsRef.current[3] = el}
+>
+  <div className="about-card distinct-about-card">
+    <h2>About This Platform</h2>
+    <div className="about-body">
+      <p style={{ textIndent: "2em", marginBottom: "1.5em" }}>
+        This platform provides access to measurements and model outputs of soil organic carbon (SOC), pH, temperature, and moisture across Swiss alpine catchments.
+      </p>
+      
+      <h4>Attribution</h4>
+      <ul style={{ marginLeft: "2em", marginBottom: "1em" }}>
+  <li>
+    <a href="https://www.epfl.ch/labs/soil/" target="_blank" rel="noopener noreferrer">
+      Soil Lab, EPFL – École polytechnique fédérale de Lausanne
+    </a>
+  </li>
+  <li>
+    <a href="https://www.epfl.ch" target="_blank" rel="noopener noreferrer">
+      EPFL – École polytechnique fédérale de Lausanne
+    </a>
+  </li>
+  <li>
+    <a href="https://www.snf.ch" target="_blank" rel="noopener noreferrer">
+      SNSF – Swiss National Science Foundation
+    </a>
+  </li>
+  <li>
+    Platform development: 
+    <a href="https://github.com/evanjt" target="_blank" rel="noopener noreferrer">Evan Thomas</a>
+  </li>
+</ul>
+    </div>
+  </div>
+</section>
+
+        
+
       </main>
     </div >
   );

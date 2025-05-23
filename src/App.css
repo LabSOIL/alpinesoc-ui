@@ -350,3 +350,31 @@ body,
 .leaflet-bar a {
   font-family: 'Barlow', sans-serif;
 }
+
+.distinct-about-card {
+  background: #23272f;
+  color: #f0f0f0;
+  box-shadow: 0 4px 24px rgba(0,0,0,0.14);
+  padding: 2.5rem 2.5rem 2rem 2.5rem;
+  border-radius: 20px;
+  max-width: 700px;
+  margin: 2rem auto;
+  font-size: 1.15rem;
+}
+
+.about-body a {
+  color: #90caf9;
+}
+
+.about-body a:hover {
+  color: #fff;
+}
+
+.about-body p {
+  line-height: 1.7;
+}
+
+.about-section h4 {
+  margin-top: 2em;
+  font-weight: 700;
+}
