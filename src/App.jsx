@@ -213,7 +213,7 @@ export function CatchmentLayers({
     SOC: 'SOC<br/>[MgC/ha]',
     pH: 'pH',
     Temperature: 'Avg. temperature (30cm)<br/>[°C]',
-    Moisture: 'Moisture<br/>[raw counts]',
+    Moisture: 'Moisture (30cm)<br/>[raw counts]',
   };
 
   // green color ramp for everything
@@ -324,15 +324,15 @@ export function CatchmentLayers({
 
                       {dataOption === 'SOC' ? (
                         <>
-                          Total depth: {plot.totalDepth} cm<br />
-                          Samples: {plot.sampleCount}<br />
+                          <strong>Total depth</strong>: {plot.totalDepth} cm<br />
+                          <strong>Samples</strong>: {plot.sampleCount}<br />
                           <hr />
-                          Mean C: {plot.meanC.toFixed(2)} %<br />
-                          SOC stock: {plot.socStock.toFixed(1)} Mg ha⁻¹
+                          <strong>Mean C</strong>: {plot.meanC.toFixed(2)} %<br />
+                          <strong>SOC stock</strong>: {plot.socStock.toFixed(1)} Mg ha⁻¹
                         </>
                       ) : (
                         <>
-                          pH: {plot.pH.toFixed(2)}<br />
+                          <strong>pH</strong>: {plot.pH.toFixed(2)}<br />
                         </>
                       )}
                     </Popup>
@@ -372,7 +372,7 @@ export function CatchmentLayers({
                       {Object.entries(avgByDepth || {}).map(([depth, v]) => (
                         <div key={depth}>
                           <strong>{depth} cm</strong>: {v.toFixed(2)}
-                          {dataOption === 'Temperature' ? ' °C' : ' %'}
+                          {dataOption === 'Temperature' ? ' °C' : ' [raw counts]'}
                         </div>
                       ))}
                     </Popup>
@@ -713,7 +713,7 @@ export default function App() {
           <div className="map-wrapper">
             <MapContainer
               bounds={[[45.817, 5.955], [47.808, 10.492]]}
-              zoom={9}
+              zoom={8}
               minZoom={9}
               scrollWheelZoom
               className="leaflet-container"
