@@ -7,14 +7,15 @@ import {
   CircleMarker,
   GeoJSON,
   Tooltip,
-  useMap
+  useMap,
+  Pane,
 } from 'react-leaflet';
 import L from 'leaflet';
 import ChevronLeftIcon from '@mui/icons-material/ChevronLeft';
 import ChevronRightIcon from '@mui/icons-material/ChevronRight';
 import 'leaflet/dist/leaflet.css';
 import TimeseriesPlot from './timeseries/TimeseriesPlot';
-import { BaseLayers, GeoTiffLayer } from './maps/Layers';
+import { BaseLayers, GeoTiffLayer, ModelRaster } from './maps/Layers';
 import chroma from 'chroma-js';
 import IdentifyControl from './maps/IdentifyControl';
 import 'leaflet-geotiff';
@@ -37,6 +38,24 @@ const modelOptions = [
 const swissBounds = [[45.5, 5.5], [48.0, 11.0]];
 const valaisBounds = [[45.8, 6.0], [47.3, 8.5]];
 const defaultColor = '#000000';
+const soilTypeColors = {
+  Colluviosol: '#8c510a',
+  Podzosol: '#b35806',
+  Rankosol: '#d8b365',
+  Epihistosol: '#f6e8C3',
+  Histosol: '#d1e5f0',
+  HistoFluviosol: '#67a9cf',
+  Fluviosol: '#2166ac',
+};
+
+const vegetationMappings = {
+  RV: { name: 'Rhododendron-Vaccinion', color: '#4d9221' },
+  Na: { name: 'Nardion', color: '#a1d76a' },
+  Cal: { name: 'Calthion', color: '#d9f0d3' },
+  Cro: { name: 'Caricetum rostratae', color: '#C7eae5' },
+  Cd: { name: 'Caricion davallianae', color: '#5ab4ac' },
+  Cfu: { name: 'Caricion fuscae', color: '#01665e' },
+};
 
 const dataAccessors = {
   SOC: plot => plot.socStock,
@@ -54,8 +73,8 @@ const dataAccessors = {
 
 
 function ModelLayer({ areaName, dataOption }) {
-  const url = getStaticModelUrl(areaName, dataOption)
-  if (!url) return null
+  const url = getStaticModelUrl(areaName, dataOption);
+  if (!url) return null;
 
   // force React to mount/unmount based on URL
   const key = url
@@ -63,13 +82,12 @@ function ModelLayer({ areaName, dataOption }) {
   // raster layers
   if (dataOption === 'ndvi' || dataOption === 'socStock') {
     return (
-      <GeoTiffLayer
+      <ModelRaster
         key={key}
         url={url}
-        opacity={0.6}
-        resolution={256}
+        dataOption={dataOption}
       />
-    )
+    );
   }
 
   // vector layers
@@ -272,13 +290,13 @@ export function CatchmentLayers({
             <Polygon
               positions={positions}
               pathOptions={{
-                fillOpacity: isActive ? 0.5 : 0.25,
+                fillOpacity: 0.25,
                 color: isActive ? '#2b8cbe' : defaultColor
               }}
-              eventHandlers={isActive && hasZoomed
-                ? {}
-                : { click: () => onAreaClick(area.id, true) }
-              }
+              eventHandlers={{
+                add: e => e.target.bringToBack(),
+                click: () => !isActive && onAreaClick(area.id, true)
+              }}
             >
               {!isActive && (
                 <Tooltip permanent interactive
@@ -680,6 +698,7 @@ export default function App() {
               maxBounds={swissBounds} // Set max bounds
               maxBoundsViscosity={1.0} // Prevent panning outside bounds
             >
+              <Pane name="rasterPane" style={{ zIndex: 450 }} />
               <CatchmentLayers
                 areas={areas}
                 activeAreaId={activeAreaId}
