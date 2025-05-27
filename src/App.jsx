@@ -5,7 +5,6 @@ import {
   Popup,
   Polygon,
   CircleMarker,
-  Marker,
   GeoJSON,
   Tooltip,
   useMap
@@ -15,14 +14,12 @@ import ChevronLeftIcon from '@mui/icons-material/ChevronLeft';
 import ChevronRightIcon from '@mui/icons-material/ChevronRight';
 import 'leaflet/dist/leaflet.css';
 import TimeseriesPlot from './timeseries/TimeseriesPlot';
-import { BaseLayers } from './maps/Layers';
+import { BaseLayers, GeoTiffLayer } from './maps/Layers';
 import chroma from 'chroma-js';
 import IdentifyControl from './maps/IdentifyControl';
 import 'leaflet-geotiff';
 import 'leaflet/dist/leaflet.css'
-import { slugify, getStaticModelUrl } from './maps/fileHelpers'
-import parseGeoraster from 'georaster'
-import GeoRasterLayer from 'georaster-layer-for-leaflet'
+import { getStaticModelUrl } from './maps/fileHelpers'
 
 const dataOptions = [
   { key: 'SOC', color: '#e41a1c' },
@@ -91,33 +88,6 @@ function ModelLayer({ areaName, dataOption }) {
       }
     />
   )
-}
-
-function GeoTiffLayer({ url, opacity = 0.7, resolution = 128 }) {
-  const map = useMap()
-  React.useEffect(() => {
-    let layer
-    fetch(url)
-      .then(r => r.arrayBuffer())
-      .then(parseGeoraster)
-      .then(georaster => {
-        const [min, max] = [georaster.mins[0], georaster.maxs[0]]
-        const scale = chroma.scale(['#ffffcc', '#c2e699', '#31a354', '#006837'])
-          .domain([min, max])
-        layer = new GeoRasterLayer({
-          georaster,
-          opacity,
-          resolution,
-          pixelValuesToColorFn: px => px[0] == null
-            ? null
-            : scale(px[0]).hex()
-        })
-        map.addLayer(layer)
-      })
-      .catch(console.error)
-    return () => layer && map.removeLayer(layer)
-  }, [map, url, opacity, resolution])
-  return null
 }
 
 function VectorGeoJSON({ url, style, onEachFeature }) {
@@ -222,30 +192,6 @@ export function CatchmentLayers({
     }
     map._loaded ? doFly() : map.once('load', doFly)
   }, [areas, activeAreaId, recenterSignal])
-
-  // helper to render GeoTIFF via canvas
-  function GeoTiffLayer({ url, opacity = 0.7, resolution = 128 }) {
-    useEffect(() => {
-      let layer
-      fetch(url).then(r => r.arrayBuffer())
-        .then(parseGeoraster)
-        .then(g => {
-          const [min, max] = [g.mins[0], g.maxs[0]]
-          const scale = chroma.scale(['#ffffcc', '#c2e699', '#31a354', '#006837'])
-            .domain([min, max])
-          layer = new GeoRasterLayer({
-            georaster: g,
-            opacity,
-            resolution,
-            pixelValuesToColorFn: px => px[0] == null ? null : scale(px[0]).hex()
-          })
-          map.addLayer(layer)
-        })
-        .catch(console.error)
-      return () => layer && map.removeLayer(layer)
-    }, [url, opacity, resolution])
-    return null
-  }
 
   // helper to render a static GeoJSON
   function VectorGeoJSON({ url, style, onEachFeature }) {
@@ -748,6 +694,7 @@ export default function App() {
 
               {viewMode === 'model' && activeAreaId && (
                 <ModelLayer
+                  key={getStaticModelUrl(areaName, selectedData)}
                   areaName={areaName}
                   dataOption={selectedData}
                 />

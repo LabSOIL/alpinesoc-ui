@@ -1,4 +1,9 @@
 import { LayersControl, TileLayer } from 'react-leaflet';
+import { useEffect, useRef } from 'react';
+import { useMap } from 'react-leaflet';
+import parseGeoraster from 'georaster'
+import GeoRasterLayer from 'georaster-layer-for-leaflet'
+import chroma from 'chroma-js';
 
 export const BaseLayers = () => {
     const { BaseLayer, Overlay } = LayersControl;
@@ -41,3 +46,52 @@ export const BaseLayers = () => {
             </BaseLayer>
         </LayersControl >)
 };
+
+
+export function GeoTiffLayer({ url, opacity = 0.7, resolution = 128 }) {
+    const map = useMap();
+    const layerRef = useRef(null);
+
+    useEffect(() => {
+        let cancelled = false;
+
+        async function addLayer() {
+            try {
+                const buffer = await fetch(url).then(r => r.arrayBuffer());
+                const gr = await parseGeoraster(buffer);
+                if (cancelled) return;
+
+                const [min, max] = [gr.mins[0], gr.maxs[0]];
+                const scale = chroma
+                    .scale(['#ffffcc', '#c2e699', '#31a354', '#006837'])
+                    .domain([min, max]);
+
+                layerRef.current = new GeoRasterLayer({
+                    georaster: gr,
+                    opacity,
+                    resolution,
+                    pixelValuesToColorFn: px =>
+                        px[0] == null ? null : scale(px[0]).hex(),
+                });
+
+                map.addLayer(layerRef.current);
+            } catch (e) {
+                console.error(e);
+            }
+        }
+
+        // start loading the new layer
+        addLayer();
+
+        // cleanup: cancel pending work & remove any existing layer
+        return () => {
+            cancelled = true;
+            if (layerRef.current) {
+                map.removeLayer(layerRef.current);
+                layerRef.current = null;
+            }
+        };
+    }, [map, url, opacity, resolution]);
+
+    return null;
+}
