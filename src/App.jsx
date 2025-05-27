@@ -483,7 +483,6 @@ export default function App() {
           })
         }));
         setAreas(enriched);
-        setShouldRecenter(true);
       })
       .catch(console.error);
   }, []);
