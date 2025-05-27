@@ -3,10 +3,7 @@ import Plot from 'react-plotly.js';
 
 export default function TimeseriesPlot({ series, dataOption }) {
   // pick the correct field
-  const key =
-    dataOption === 'Temperature'
-      ? 'average_temperature_by_depth_cm'
-      : 'average_moisture_by_depth_cm';
+  const key = 'data_by_depth_cm';
   const byDepth = series[key] || {};
 
   // build one trace per depth
@@ -26,27 +23,27 @@ export default function TimeseriesPlot({ series, dataOption }) {
       data={traces}
       layout={{
         // title as object, so you can style it later if you like
-        title: { 
+        title: {
           text: `${series.name} — ${dataOption}`,
           font: { size: 14 } // Adjust the font size here
         },
-  
+
         // axis labels with units
         xaxis: {
           title: { text: 'Time (UTC)' },
           automargin: true,
         },
         yaxis: {
-          title: { text: dataOption === 'Temperature' ? 'Temperature (°C)' : 'Moisture (%)' },
+          title: { text: dataOption === 'Temperature' ? 'Temperature (°C)' : 'Moisture (raw counts)' },
           automargin: true,
         },
-  
+
         // legend styling
         legend: { orientation: 'h', xanchor: 'center', x: 0.5, y: -0.2 },
-  
+
         // make sure there's room for your title
         margin: { t: 50, b: 50, l: 50, r: 20 },
-  
+
         // you can also explicitly set a minimum height
         height: 200,
       }}
@@ -54,4 +51,4 @@ export default function TimeseriesPlot({ series, dataOption }) {
       config={{ responsive: true }}
     />
   );
-  }
+}

@@ -260,9 +260,9 @@ export function CatchmentLayers({
     else map.once('load', doFly);
   }, [areas, activeAreaId, map, recenterSignal, onRecenterHandled]);
 
-  
-  
-  
+
+
+
   return (
     <>
       <BaseLayers />
@@ -349,10 +349,10 @@ export function CatchmentLayers({
                 const avgByDepth = dataOption === 'Temperature'
                   ? sensor.average_temperature
                   : sensor.average_moisture;
-                  const val30 = avgByDepth?.['30'] ?? null;
-                  const color = val30 !== null
-                    ? getColor(val30)
-                    : defaultColor;
+                const val30 = avgByDepth?.['30'] ?? null;
+                const color = val30 !== null
+                  ? getColor(val30)
+                  : defaultColor;
 
                 return (
                   <CircleMarker
@@ -421,6 +421,8 @@ export default function App() {
   ]);
   const [areas, setAreas] = useState([]);
   const [sensorSeries, setSensorSeries] = useState(null);
+  const sensorCacheRef = useRef({});
+
 
   const [shouldRecenter, setShouldRecenter] = useState(false);
   const sectionsRef = useRef([]);
@@ -428,17 +430,37 @@ export default function App() {
   const expBtnRef = useRef(null);
   const modBtnRef = useRef(null);
   const [thumbStyle, setThumbStyle] = useState({ left: 0, width: 0 });
-
   const handleSensorClick = async (sensorId) => {
+    // build a cache key so temp and moisture are stored separately
+    const cacheKey = `${sensorId}_${selectedData}`;
+    const cached = sensorCacheRef.current[cacheKey];
+    if (cached) {
+      setSensorSeries(cached);
+      return;
+    }
+
+    // pick the right endpoint
+    let endpoint;
+    if (selectedData === 'Temperature') {
+      endpoint = `/api/public/sensors/${sensorId}/temperature`;
+    } else if (selectedData === 'Moisture') {
+      endpoint = `/api/public/sensors/${sensorId}/moisture`;
+    }
+
     try {
-      const res = await fetch(`/api/public/sensors/${sensorId}`);
-      if (!res.ok) throw new Error('Failed to load sensor data');
+      const res = await fetch(endpoint);
+      if (!res.ok) throw new Error(`Failed to load sensor data (${res.status})`);
       const json = await res.json();
+
+      // cache it by sensorId + data type
+      sensorCacheRef.current[cacheKey] = json;
       setSensorSeries(json);
     } catch (err) {
       console.error(err);
     }
   };
+
+
 
   useLayoutEffect(() => {
     const updateThumb = () => {
@@ -573,35 +595,35 @@ export default function App() {
             {menuItems.map(item => (
               <li key={item.key} className={activeSection === item.key ? 'active' : ''}>
                 {item.key !== 'data' && (
-                 <button
-                 type="button"
-                 className="menu-btn"
-                 onClick={() => {
-                   if (item.key === 'catchment' || item.key === 'about') clearArea();
-                   scrollTo(item.key);
-                 }}
-               >
-                 {activeSection === item.key ? <strong>{item.label}</strong> : item.label}
-               </button>
+                  <button
+                    type="button"
+                    className="menu-btn"
+                    onClick={() => {
+                      if (item.key === 'catchment' || item.key === 'about') clearArea();
+                      scrollTo(item.key);
+                    }}
+                  >
+                    {activeSection === item.key ? <strong>{item.label}</strong> : item.label}
+                  </button>
                 )}
 
-              {item.key === 'catchment' && activeSection === 'catchment' && (
-                <ul className="sub-menu">
-                  {item.subItems.map(s => (
-                    <li key={s.key} className={activeAreaId === s.key ? 'active-area' : ''}>
-                      <button
-                        className={`submenu-btn ${activeAreaId === s.key ? 'active-data' : ''}`}
-                        onClick={() => selectArea(s.key, true)}
-                      >
-                        {s.label}
-                      </button>
-                      {activeAreaId === s.key && (
-                        <button className="remove-selected" onClick={clearArea}>✕</button>
-                      )}
-                    </li>
-                  ))}
-                </ul>
-              )}
+                {item.key === 'catchment' && activeSection === 'catchment' && (
+                  <ul className="sub-menu">
+                    {item.subItems.map(s => (
+                      <li key={s.key} className={activeAreaId === s.key ? 'active-area' : ''}>
+                        <button
+                          className={`submenu-btn ${activeAreaId === s.key ? 'active-data' : ''}`}
+                          onClick={() => selectArea(s.key, true)}
+                        >
+                          {s.label}
+                        </button>
+                        {activeAreaId === s.key && (
+                          <button className="remove-selected" onClick={clearArea}>✕</button>
+                        )}
+                      </li>
+                    ))}
+                  </ul>
+                )}
 
                 {item.key === 'data' && activeAreaId && (
                   <>
@@ -682,79 +704,82 @@ export default function App() {
         </section>
 
         {/* CATCHMENT */}
-          <section
-            className="section"
-            data-section="catchment"
-            ref={el => sectionsRef.current[1] = el}
-          >
-            <h2>{areas.find(a => a.id === activeAreaId)?.name || 'Select a catchment'}</h2>
-            <div className="map-wrapper">
-              <MapContainer
-                bounds={[[45.817, 5.955], [47.808, 10.492]]}
-                zoom={10}
-                scrollWheelZoom
-                className="leaflet-container"
-              >
-                <CatchmentLayers
-                    areas={areas}
-                    activeAreaId={activeAreaId}
-                    dataOption={selectedData}
-                    onAreaClick={selectArea}
-                    onSensorClick={handleSensorClick}
-                    onSensorClose={() => setSensorSeries(null)}
-                    recenterSignal={shouldRecenter}
-                    onRecenterHandled={() => setShouldRecenter(false)}
-                />
-                <IdentifyControl />
-              </MapContainer>
-              {sensorSeries && (selectedData === 'Temperature' || selectedData === 'Moisture') && (
-                <div className="overlay-chart">
-            <TimeseriesPlot series={sensorSeries} dataOption={selectedData} />
-                </div>
-              )}
+        <section
+          className="section"
+          data-section="catchment"
+          ref={el => sectionsRef.current[1] = el}
+        >
+          <h2>{areas.find(a => a.id === activeAreaId)?.name || 'Select a catchment'}</h2>
+          <div className="map-wrapper">
+            <MapContainer
+              bounds={[[45.817, 5.955], [47.808, 10.492]]}
+              zoom={9}
+              minZoom={9}
+              scrollWheelZoom
+              className="leaflet-container"
+              maxBounds={[[45.817, 5.955], [47.808, 10.492]]} // Set max bounds
+              maxBoundsViscosity={1.0} // Prevent panning outside bounds
+            >
+              <CatchmentLayers
+                areas={areas}
+                activeAreaId={activeAreaId}
+                dataOption={selectedData}
+                onAreaClick={selectArea}
+                onSensorClick={handleSensorClick}
+                onSensorClose={() => setSensorSeries(null)}
+                recenterSignal={shouldRecenter}
+                onRecenterHandled={() => setShouldRecenter(false)}
+              />
+              <IdentifyControl />
+            </MapContainer>
+            {sensorSeries && (selectedData === 'Temperature' || selectedData === 'Moisture') && (
+              <div className="overlay-chart">
+                <TimeseriesPlot series={sensorSeries} dataOption={selectedData} />
+              </div>
+            )}
+          </div>
+        </section>
+
+        {/* ABOUT */}
+        <section
+          className="section about-section"
+          data-section="about"
+          ref={el => sectionsRef.current[3] = el}
+        >
+          <div className="about-card distinct-about-card">
+            <h2>About This Platform</h2>
+            <div className="about-body">
+              <p style={{ textIndent: "2em", marginBottom: "1.5em" }}>
+                This platform provides access to measurements and model outputs of soil organic carbon (SOC), pH, temperature, and moisture across Swiss alpine catchments.
+              </p>
+
+              <h4>Attribution</h4>
+              <ul style={{ marginLeft: "2em", marginBottom: "1em" }}>
+                <li>
+                  <a href="https://www.epfl.ch/labs/soil/" target="_blank" rel="noopener noreferrer">
+                    Soil Lab, EPFL – École polytechnique fédérale de Lausanne
+                  </a>
+                </li>
+                <li>
+                  <a href="https://www.epfl.ch" target="_blank" rel="noopener noreferrer">
+                    EPFL – École polytechnique fédérale de Lausanne
+                  </a>
+                </li>
+                <li>
+                  <a href="https://www.snf.ch" target="_blank" rel="noopener noreferrer">
+                    SNSF – Swiss National Science Foundation
+                  </a>
+                </li>
+                <li>
+                  Platform development:
+                  <a href="https://github.com/evanjt" target="_blank" rel="noopener noreferrer">Evan Thomas</a>
+                </li>
+              </ul>
             </div>
-          </section>
+          </div>
+        </section>
 
-          {/* ABOUT */}
-          <section
-  className="section about-section"
-  data-section="about"
-  ref={el => sectionsRef.current[3] = el}
->
-  <div className="about-card distinct-about-card">
-    <h2>About This Platform</h2>
-    <div className="about-body">
-      <p style={{ textIndent: "2em", marginBottom: "1.5em" }}>
-        This platform provides access to measurements and model outputs of soil organic carbon (SOC), pH, temperature, and moisture across Swiss alpine catchments.
-      </p>
-      
-      <h4>Attribution</h4>
-      <ul style={{ marginLeft: "2em", marginBottom: "1em" }}>
-  <li>
-    <a href="https://www.epfl.ch/labs/soil/" target="_blank" rel="noopener noreferrer">
-      Soil Lab, EPFL – École polytechnique fédérale de Lausanne
-    </a>
-  </li>
-  <li>
-    <a href="https://www.epfl.ch" target="_blank" rel="noopener noreferrer">
-      EPFL – École polytechnique fédérale de Lausanne
-    </a>
-  </li>
-  <li>
-    <a href="https://www.snf.ch" target="_blank" rel="noopener noreferrer">
-      SNSF – Swiss National Science Foundation
-    </a>
-  </li>
-  <li>
-    Platform development: 
-    <a href="https://github.com/evanjt" target="_blank" rel="noopener noreferrer">Evan Thomas</a>
-  </li>
-</ul>
-    </div>
-  </div>
-</section>
 
-        
 
       </main>
     </div >
