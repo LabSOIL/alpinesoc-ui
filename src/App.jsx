@@ -37,6 +37,9 @@ const modelOptions = [
   { key: 'vegetation', label: 'Input Vegetation' },
 ];
 
+const swissBounds = [[45.5, 5.5], [48.0, 11.0]];
+const valaisBounds = [[45.8, 6.0], [47.3, 8.5]];
+const defaultColor = '#000000';
 
 const dataAccessors = {
   SOC: plot => plot.socStock,
@@ -147,12 +150,11 @@ function Legend({ selectedData, colorScale, minVal, maxVal }) {
   return null;
 }
 
-
 export function CatchmentLayers({
   areas,
   activeAreaId,
-  dataOption,    // e.g. 'SOC','pH','Temperature','Moisture','socStock','ndvi','soilType','vegetation'
-  viewMode,      // 'experimental' or 'model'
+  dataOption,
+  viewMode,
   onAreaClick,
   onSensorClick,
   onSensorClose,
@@ -171,7 +173,8 @@ export function CatchmentLayers({
       ? areas.find(a => a.id === activeAreaId)?.geom.coordinates.flatMap(
         ring => ring.map(([lng, lat]) => [lat, lng])
       )
-      : [[45.817, 5.955], [47.808, 10.492]]
+      : valaisBounds
+
 
     const doFly = () => {
       map.flyToBounds(L.latLngBounds(coords).pad(0.2), { duration: 1 })
@@ -246,7 +249,7 @@ export function CatchmentLayers({
     return null
   }
 
-  const defaultColor = '#000000'
+
   const { minVal, maxVal } = useMemo(() => {
     // for Temperature/Moisture, read the sensors’ 30 cm bucket
     if (dataOption === 'Temperature' || dataOption === 'Moisture') {
@@ -717,12 +720,12 @@ export default function App() {
           <h2>{areas.find(a => a.id === activeAreaId)?.name || 'Select a catchment'}</h2>
           <div className="map-wrapper">
             <MapContainer
-              bounds={[[45.817, 5.955], [47.808, 10.492]]}
+              bounds={valaisBounds}
               zoom={8}
-              minZoom={9}
+              minZoom={8}
               scrollWheelZoom
               className="leaflet-container"
-              maxBounds={[[45.817, 5.955], [47.808, 10.492]]} // Set max bounds
+              maxBounds={swissBounds} // Set max bounds
               maxBoundsViscosity={1.0} // Prevent panning outside bounds
             >
               <CatchmentLayers
