@@ -56,6 +56,43 @@ const dataAccessors = {
 };
 
 
+function ModelLayer({ areaName, dataOption }) {
+  const url = getStaticModelUrl(areaName, dataOption)
+  if (!url) return null
+
+  // force React to mount/unmount based on URL
+  const key = url
+
+  // raster layers
+  if (dataOption === 'ndvi' || dataOption === 'socStock') {
+    return (
+      <GeoTiffLayer
+        key={key}
+        url={url}
+        opacity={0.6}
+        resolution={256}
+      />
+    )
+  }
+
+  // vector layers
+  const style =
+    dataOption === 'soilType'
+      ? { color: '#e41a1c', weight: 2, fillOpacity: 0.3 }
+      : { color: '#4daf4a', weight: 2, fillOpacity: 0.3 }
+
+  return (
+    <VectorGeoJSON
+      key={key}
+      url={url}
+      style={() => style}
+      onEachFeature={(feat, layer) =>
+        layer.bindPopup(feat.properties.name || areaName)
+      }
+    />
+  )
+}
+
 function GeoTiffLayer({ url, opacity = 0.7, resolution = 128 }) {
   const map = useMap()
   React.useEffect(() => {
@@ -218,37 +255,6 @@ export function CatchmentLayers({
     }, [url])
     return data ? <GeoJSON data={data} style={style} onEachFeature={onEachFeature} /> : null
   }
-
-  // If model mode, load exactly one static layer
-  if (viewMode === 'model' && activeAreaId) {
-    const areaName = areas.find(a => a.id === activeAreaId)?.name
-    const url = getStaticModelUrl(areaName, dataOption)
-    if (!url) return null
-
-    if (dataOption === 'socStock' || dataOption === 'ndvi') {
-      return <GeoTiffLayer url={url} opacity={0.6} resolution={256} />
-    }
-    if (dataOption === 'soilType') {
-      return (
-        <VectorGeoJSON
-          url={url}
-          style={() => ({ color: '#e41a1c', weight: 2, fillOpacity: 0.3 })}
-          onEachFeature={(feat, lyr) => lyr.bindPopup(feat.properties.name || areaName)}
-        />
-      )
-    }
-    if (dataOption === 'vegetation') {
-      return (
-        <VectorGeoJSON
-          url={url}
-          style={() => ({ color: '#4daf4a', weight: 2, fillOpacity: 0.3 })}
-          onEachFeature={(feat, lyr) => lyr.bindPopup(feat.properties.name || areaName)}
-        />
-      )
-    }
-    return null
-  }
-
 
   const { minVal, maxVal } = useMemo(() => {
     // for Temperature/Moisture, read the sensors’ 30 cm bucket
@@ -740,41 +746,12 @@ export default function App() {
               />
               <IdentifyControl />
 
-              {viewMode === 'model' && areaName && (() => {
-                const key = selectedData
-                const url = getStaticModelUrl(areaName, key)
-                if (!url) return null
-
-                // raster keys
-                if (key === 'socStock' || key === 'ndvi') {
-                  return <GeoTiffLayer url={url} opacity={0.6} resolution={256} />
-                }
-
-                // vector keys
-                if (key === 'soilType') {
-                  return (
-                    <VectorGeoJSON
-                      url={url}
-                      style={() => ({ color: '#e41a1c', weight: 2, fillOpacity: 0.3 })}
-                      onEachFeature={(feat, layer) =>
-                        layer.bindPopup(feat.properties.name || areaName)
-                      }
-                    />
-                  )
-                }
-                if (key === 'vegetation') {
-                  return (
-                    <VectorGeoJSON
-                      url={url}
-                      style={() => ({ color: '#4daf4a', weight: 2, fillOpacity: 0.3 })}
-                      onEachFeature={(feat, layer) =>
-                        layer.bindPopup(feat.properties.name || areaName)
-                      }
-                    />
-                  )
-                }
-                return null
-              })()}
+              {viewMode === 'model' && activeAreaId && (
+                <ModelLayer
+                  areaName={areaName}
+                  dataOption={selectedData}
+                />
+              )}
             </MapContainer>
             {sensorSeries && (selectedData === 'Temperature' || selectedData === 'Moisture') && (
               <div className="overlay-chart">
