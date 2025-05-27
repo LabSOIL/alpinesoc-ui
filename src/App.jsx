@@ -18,10 +18,9 @@ import TimeseriesPlot from './timeseries/TimeseriesPlot';
 import { BaseLayers } from './maps/Layers';
 import chroma from 'chroma-js';
 import IdentifyControl from './maps/IdentifyControl';
-import 'leaflet-geotiff';      
+import 'leaflet-geotiff';
 import 'leaflet/dist/leaflet.css'
 import { slugify, getStaticModelUrl } from './maps/fileHelpers'
-
 import parseGeoraster from 'georaster'
 import GeoRasterLayer from 'georaster-layer-for-leaflet'
 
@@ -32,7 +31,7 @@ const dataOptions = [
   { key: 'Moisture', color: '#984ea3' },
 ];
 const modelOptions = [
-  { key: 'ndvi',     label: 'NDVI' },
+  { key: 'ndvi', label: 'NDVI' },
   { key: 'socStock', label: 'Output SOC stock' },
   { key: 'soilType', label: 'Input Soil type' },
   { key: 'vegetation', label: 'Input Vegetation' },
@@ -63,8 +62,8 @@ function GeoTiffLayer({ url, opacity = 0.7, resolution = 128 }) {
       .then(parseGeoraster)
       .then(georaster => {
         const [min, max] = [georaster.mins[0], georaster.maxs[0]]
-        const scale = chroma.scale(['#ffffcc','#c2e699','#31a354','#006837'])
-                            .domain([min, max])
+        const scale = chroma.scale(['#ffffcc', '#c2e699', '#31a354', '#006837'])
+          .domain([min, max])
         layer = new GeoRasterLayer({
           georaster,
           opacity,
@@ -90,7 +89,7 @@ function VectorGeoJSON({ url, style, onEachFeature }) {
       .catch(console.error)
   }, [url])
   if (!data) return null
-  return <GeoJSON data={data} style={style} onEachFeature={onEachFeature}/>
+  return <GeoJSON data={data} style={style} onEachFeature={onEachFeature} />
 }
 
 function Legend({ selectedData, colorScale, minVal, maxVal }) {
@@ -169,10 +168,10 @@ export function CatchmentLayers({
     setHasZoomed(false)
 
     const coords = activeAreaId
-      ? areas.find(a=>a.id===activeAreaId)?.geom.coordinates.flatMap(
-          ring => ring.map(([lng,lat])=>[lat,lng])
-        )
-      : [[45.817,5.955],[47.808,10.492]]
+      ? areas.find(a => a.id === activeAreaId)?.geom.coordinates.flatMap(
+        ring => ring.map(([lng, lat]) => [lat, lng])
+      )
+      : [[45.817, 5.955], [47.808, 10.492]]
 
     const doFly = () => {
       map.flyToBounds(L.latLngBounds(coords).pad(0.2), { duration: 1 })
@@ -185,62 +184,62 @@ export function CatchmentLayers({
   }, [areas, activeAreaId, recenterSignal])
 
   // helper to render GeoTIFF via canvas
-  function GeoTiffLayer({ url, opacity=0.7, resolution=128 }) {
-    useEffect(()=>{
+  function GeoTiffLayer({ url, opacity = 0.7, resolution = 128 }) {
+    useEffect(() => {
       let layer
-      fetch(url).then(r=>r.arrayBuffer())
+      fetch(url).then(r => r.arrayBuffer())
         .then(parseGeoraster)
-        .then(g=>{
-          const [min,max] = [g.mins[0], g.maxs[0]]
-          const scale = chroma.scale(['#ffffcc','#c2e699','#31a354','#006837'])
-                            .domain([min,max])
+        .then(g => {
+          const [min, max] = [g.mins[0], g.maxs[0]]
+          const scale = chroma.scale(['#ffffcc', '#c2e699', '#31a354', '#006837'])
+            .domain([min, max])
           layer = new GeoRasterLayer({
             georaster: g,
             opacity,
             resolution,
-            pixelValuesToColorFn: px => px[0]==null ? null : scale(px[0]).hex()
+            pixelValuesToColorFn: px => px[0] == null ? null : scale(px[0]).hex()
           })
           map.addLayer(layer)
         })
         .catch(console.error)
-      return ()=>layer && map.removeLayer(layer)
-    },[url,opacity,resolution])
+      return () => layer && map.removeLayer(layer)
+    }, [url, opacity, resolution])
     return null
   }
 
   // helper to render a static GeoJSON
   function VectorGeoJSON({ url, style, onEachFeature }) {
     const [data, setData] = useState(null)
-    useEffect(()=>{
-      fetch(url).then(r=>r.json()).then(setData).catch(console.error)
-    },[url])
+    useEffect(() => {
+      fetch(url).then(r => r.json()).then(setData).catch(console.error)
+    }, [url])
     return data ? <GeoJSON data={data} style={style} onEachFeature={onEachFeature} /> : null
   }
 
   // If model mode, load exactly one static layer
   if (viewMode === 'model' && activeAreaId) {
-    const areaName = areas.find(a=>a.id===activeAreaId)?.name
+    const areaName = areas.find(a => a.id === activeAreaId)?.name
     const url = getStaticModelUrl(areaName, dataOption)
     if (!url) return null
 
-    if (dataOption==='socStock' || dataOption==='ndvi') {
-      return <GeoTiffLayer url={url} opacity={0.6} resolution={256}/>
+    if (dataOption === 'socStock' || dataOption === 'ndvi') {
+      return <GeoTiffLayer url={url} opacity={0.6} resolution={256} />
     }
-    if (dataOption==='soilType') {
+    if (dataOption === 'soilType') {
       return (
         <VectorGeoJSON
           url={url}
-          style={()=>({ color:'#e41a1c', weight:2, fillOpacity:0.3 })}
-          onEachFeature={(feat,lyr)=>lyr.bindPopup(feat.properties.name||areaName)}
+          style={() => ({ color: '#e41a1c', weight: 2, fillOpacity: 0.3 })}
+          onEachFeature={(feat, lyr) => lyr.bindPopup(feat.properties.name || areaName)}
         />
       )
     }
-    if (dataOption==='vegetation') {
+    if (dataOption === 'vegetation') {
       return (
         <VectorGeoJSON
           url={url}
-          style={()=>({ color:'#4daf4a', weight:2, fillOpacity:0.3 })}
-          onEachFeature={(feat,lyr)=>lyr.bindPopup(feat.properties.name||areaName)}
+          style={() => ({ color: '#4daf4a', weight: 2, fillOpacity: 0.3 })}
+          onEachFeature={(feat, lyr) => lyr.bindPopup(feat.properties.name || areaName)}
         />
       )
     }
@@ -297,67 +296,67 @@ export function CatchmentLayers({
 
   // green color ramp for everything
   const colorScale = useMemo(
-    ()=>chroma.scale(['#ffffcc','#c2e699','#31a354','#006837']).domain([minVal,maxVal]),
-    [minVal,maxVal]
+    () => chroma.scale(['#ffffcc', '#c2e699', '#31a354', '#006837']).domain([minVal, maxVal]),
+    [minVal, maxVal]
   )
-  const getColor = v=>colorScale(v).hex()
+  const getColor = v => colorScale(v).hex()
 
   return (
     <>
-      <BaseLayers/>
+      <BaseLayers />
 
       {areas.map(area => {
         if (!area.geom?.coordinates) return null
         const positions = area.geom.coordinates.map(
-          ring => ring.map(([lng,lat])=>[lat,lng])
+          ring => ring.map(([lng, lat]) => [lat, lng])
         )
-        const isActive = area.id===activeAreaId
+        const isActive = area.id === activeAreaId
 
         return (
           <React.Fragment key={area.id}>
             <Polygon
               positions={positions}
               pathOptions={{
-                fillOpacity: isActive?0.5:0.25,
-                color:      isActive?'#2b8cbe':defaultColor
+                fillOpacity: isActive ? 0.5 : 0.25,
+                color: isActive ? '#2b8cbe' : defaultColor
               }}
-              eventHandlers={ isActive&&hasZoomed
+              eventHandlers={isActive && hasZoomed
                 ? {}
-                : { click:()=>onAreaClick(area.id,true) }
+                : { click: () => onAreaClick(area.id, true) }
               }
             >
               {!isActive && (
-                <Tooltip permanent interactive 
-                  eventHandlers={{ click:()=>onAreaClick(area.id,true) }}
+                <Tooltip permanent interactive
+                  eventHandlers={{ click: () => onAreaClick(area.id, true) }}
                 >
                   {area.name}
                 </Tooltip>
               )}
             </Polygon>
 
-            {isActive && hasZoomed && ['SOC','pH'].includes(dataOption) &&
+            {isActive && hasZoomed && ['SOC', 'pH'].includes(dataOption) &&
               area.plots.map(plot => {
-                const c=plot.geom['4326']; if(!c) return null
-                const {x:lon,y:lat}=c
+                const c = plot.geom['4326']; if (!c) return null
+                const { x: lon, y: lat } = c
                 const val = dataAccessors[dataOption](plot)
                 const clr = getColor(val)
-                const rad = dataOption==='SOC' 
+                const rad = dataOption === 'SOC'
                   ? Math.sqrt(plot.socStock) : 6
 
                 return (
                   <CircleMarker
                     key={plot.id}
-                    center={[lat,lon]}
-                    pathOptions={{ color:clr, fillColor:clr, fillOpacity:1 }}
+                    center={[lat, lon]}
+                    pathOptions={{ color: clr, fillColor: clr, fillOpacity: 1 }}
                     radius={rad}
                   >
                     <Popup>
-                      <strong>{plot.name}</strong><br/>
-                      {dataOption==='SOC'
+                      <strong>{plot.name}</strong><br />
+                      {dataOption === 'SOC'
                         ? <>
-                            <strong>Total depth</strong>: {plot.totalDepth} cm<br/>
-                            <strong>SOC stock</strong>: {plot.socStock.toFixed(1)} Mg ha⁻¹
-                          </>
+                          <strong>Total depth</strong>: {plot.totalDepth} cm<br />
+                          <strong>SOC stock</strong>: {plot.socStock.toFixed(1)} Mg ha⁻¹
+                        </>
                         : <><strong>pH</strong>: {plot.pH.toFixed(2)}</>
                       }
                     </Popup>
@@ -366,29 +365,29 @@ export function CatchmentLayers({
               })
             }
 
-            {isActive && hasZoomed && ['Temperature','Moisture'].includes(dataOption) &&
+            {isActive && hasZoomed && ['Temperature', 'Moisture'].includes(dataOption) &&
               area.sensors.map(sensor => {
-                const c=sensor.geom['4326']; if(!c) return null
-                const {x:lon,y:lat}=c
-                const avg = dataOption==='Temperature'
+                const c = sensor.geom['4326']; if (!c) return null
+                const { x: lon, y: lat } = c
+                const avg = dataOption === 'Temperature'
                   ? sensor.average_temperature : sensor.average_moisture
                 const v30 = avg?.['30'] ?? null
-                const clr = v30!=null ? getColor(v30) : defaultColor
+                const clr = v30 != null ? getColor(v30) : defaultColor
 
                 return (
                   <CircleMarker
                     key={sensor.id}
-                    center={[lat,lon]}
-                    pathOptions={{ color:clr, fillColor:clr, fillOpacity:1 }}
+                    center={[lat, lon]}
+                    pathOptions={{ color: clr, fillColor: clr, fillOpacity: 1 }}
                     radius={8}
-                    eventHandlers={{ click:()=>onSensorClick(sensor.id) }}
+                    eventHandlers={{ click: () => onSensorClick(sensor.id) }}
                   >
-                    <Popup eventHandlers={{ remove:()=>onSensorClose() }}>
-                      <strong>{sensor.name}</strong><br/><br/>
-                      {Object.entries(avg||{}).map(([d,v])=>(
+                    <Popup eventHandlers={{ remove: () => onSensorClose() }}>
+                      <strong>{sensor.name}</strong><br /><br />
+                      {Object.entries(avg || {}).map(([d, v]) => (
                         <div key={d}>
                           <strong>{d} cm</strong>: {v.toFixed(2)}
-                          {dataOption==='Temperature'?' °C':' [raw]'}
+                          {dataOption === 'Temperature' ? ' °C' : ' [raw]'}
                         </div>
                       ))}
                     </Popup>
@@ -397,12 +396,12 @@ export function CatchmentLayers({
               })
             }
 
-      <Legend
-        selectedData={dataOption}
-        colorScale={colorScale}
-        minVal={minVal}
-        maxVal={maxVal}
-      />
+            <Legend
+              selectedData={dataOption}
+              colorScale={colorScale}
+              minVal={minVal}
+              maxVal={maxVal}
+            />
           </React.Fragment>
         )
       })}
@@ -737,42 +736,42 @@ export default function App() {
                 onRecenterHandled={() => setShouldRecenter(false)}
               />
               <IdentifyControl />
-              
-            {viewMode === 'model' && areaName && (() => {
-              const key = selectedData
-              const url = getStaticModelUrl(areaName, key)
-              if (!url) return null
 
-              // raster keys
-              if (key === 'socStock' || key === 'ndvi') {
-                return <GeoTiffLayer url={url} opacity={0.6} resolution={256}/>
-              }
+              {viewMode === 'model' && areaName && (() => {
+                const key = selectedData
+                const url = getStaticModelUrl(areaName, key)
+                if (!url) return null
 
-              // vector keys
-              if (key === 'soilType') {
-                return (
-                  <VectorGeoJSON
-                    url={url}
-                    style={() => ({ color: '#e41a1c', weight: 2, fillOpacity: 0.3 })}
-                    onEachFeature={(feat, layer) =>
-                      layer.bindPopup(feat.properties.name || areaName)
-                    }
-                  />
-                )
-              }
-              if (key === 'vegetation') {
-                return (
-                  <VectorGeoJSON
-                    url={url}
-                    style={() => ({ color: '#4daf4a', weight: 2, fillOpacity: 0.3 })}
-                    onEachFeature={(feat, layer) =>
-                      layer.bindPopup(feat.properties.name || areaName)
-                    }
-                  />
-                )
-              }
-              return null
-            })()}
+                // raster keys
+                if (key === 'socStock' || key === 'ndvi') {
+                  return <GeoTiffLayer url={url} opacity={0.6} resolution={256} />
+                }
+
+                // vector keys
+                if (key === 'soilType') {
+                  return (
+                    <VectorGeoJSON
+                      url={url}
+                      style={() => ({ color: '#e41a1c', weight: 2, fillOpacity: 0.3 })}
+                      onEachFeature={(feat, layer) =>
+                        layer.bindPopup(feat.properties.name || areaName)
+                      }
+                    />
+                  )
+                }
+                if (key === 'vegetation') {
+                  return (
+                    <VectorGeoJSON
+                      url={url}
+                      style={() => ({ color: '#4daf4a', weight: 2, fillOpacity: 0.3 })}
+                      onEachFeature={(feat, layer) =>
+                        layer.bindPopup(feat.properties.name || areaName)
+                      }
+                    />
+                  )
+                }
+                return null
+              })()}
             </MapContainer>
             {sensorSeries && (selectedData === 'Temperature' || selectedData === 'Moisture') && (
               <div className="overlay-chart">

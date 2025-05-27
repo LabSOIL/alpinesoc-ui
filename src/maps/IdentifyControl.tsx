@@ -1,15 +1,15 @@
+import proj4 from 'proj4';
 import React, { useState, useEffect } from 'react';
 import { useMap, useMapEvents } from 'react-leaflet';
-import proj4 from 'proj4';
 import L from 'leaflet';
 
-// 1. Register Swiss LV95 / EPSG:2056 in proj4
-proj4.defs(
-  'EPSG:2056',
-  '+proj=somerc +lat_0=46.9524055555556 +lon_0=7.43958333333333 +k_0=1 ' +
-    '+x_0=2600000 +y_0=1200000 +ellps=bessel ' +
-    '+towgs84=674.374,15.056,405.346,0,0,0,0 +units=m +no_defs +type=crs'
-)
+// // 1. Register Swiss LV95 / EPSG:2056 in proj4
+// proj4.defs(
+//   'EPSG:2056',
+//   '+proj=somerc +lat_0=46.9524055555556 +lon_0=7.43958333333333 +k_0=1 ' +
+//   '+x_0=2600000 +y_0=1200000 +ellps=bessel ' +
+//   '+towgs84=674.374,15.056,405.346,0,0,0,0 +units=m +no_defs +type=crs'
+// )
 
 export default function IdentifyControl({
   targetLayerName = 'SwissTopo Lithology GeoCover',
@@ -68,9 +68,9 @@ export default function IdentifyControl({
 
         const p = feature.properties
         const titleDe = p.litho_de || '–'
-        const descDe  = p.description_de || ''
+        const descDe = p.description_de || ''
         const titleFr = p.litho_fr || '–'
-        const descFr  = p.description_fr || ''
+        const descFr = p.description_fr || ''
 
         const html = `
           <div style="font-size:0.9rem; line-height:1.3">
@@ -80,9 +80,9 @@ export default function IdentifyControl({
             <div><strong>Français:</strong> ${titleFr}</div>
             <div>${descFr}</div>
             <div style="margin-top:0.75em; font-size:0.8rem; color:#555">
-              <em>Source: 
-                <a href="https://www.swisstopo.admin.ch/en/geological-model-2d-geocover" 
-                   target="_blank" 
+              <em>Source:
+                <a href="https://www.swisstopo.admin.ch/en/geological-model-2d-geocover"
+                   target="_blank"
                    rel="noopener noreferrer">
                   SwissTopo GeoCover
                 </a>
