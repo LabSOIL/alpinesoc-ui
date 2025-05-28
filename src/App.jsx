@@ -38,14 +38,14 @@ const modelOptions = [
 const swissBounds = [[45.5, 5.5], [48.0, 11.0]];
 const valaisBounds = [[45.8, 6.0], [47.3, 8.5]];
 const defaultColor = '#000000';
-const soilTypeColors = {
-  Colluviosol: '#8c510a',
-  Podzosol: '#b35806',
-  Rankosol: '#d8b365',
-  Epihistosol: '#f6e8C3',
-  Histosol: '#d1e5f0',
-  HistoFluviosol: '#67a9cf',
-  Fluviosol: '#2166ac',
+const soilTypeMappings = {
+  Colluviosol:  { name: 'Colluviosol',      color: '#8c510a' },
+  Podzosol:     { name: 'Podzosol',         color: '#b35806' },
+  Rankosol:     { name: 'Rankosol',         color: '#d8b365' },
+  Epihistosol:  { name: 'Epihistosol',      color: '#f6e8C3' },
+  Histosol:     { name: 'Histosol',         color: '#d1e5f0' },
+  HistoFluviosol: { name: 'Histo-Fluviosol', color: '#67a9cf' },
+  Fluviosol:    { name: 'Fluviosol',        color: '#2166ac' },
 };
 
 const vegetationMappings = {
@@ -70,28 +70,15 @@ const dataAccessors = {
   lithology: plot => plot.lithology,
   aerialPhoto: plot => plot.aerialPhoto,
 };
-function soilStyle(feature) {
-  // normalize the raw attribute to match your keys:
-  console.log("Feature properties:", feature.properties);
-  let raw = feature.properties['name'];
-  if (!raw) {
-    return {
-      color: defaultColor,
-      fillColor: defaultColor,
-      weight: 2,
-      fillOpacity: 0.75,
-    };
-  }
-  console.log("Raw soil type:", raw);
-  let key = raw
-    .replace(/[-\s]/g, '');  // remove hyphens/spaces
-  // .replace(/^Coluviosol$/, 'Colluviosol');
 
-  const color = soilTypeColors[key] || defaultColor;
+export function soilStyle(feature) {
+  const raw = feature.properties.name || '';
+  const key = raw.replace(/[-\s]/g, '');  
+  const mapping = soilTypeMappings[key] || { name: raw, color: '#000' };
   return {
-    color,
-    fillColor: color,
-    weight: 2,
+    color:      mapping.color,
+    fillColor:  mapping.color,
+    weight:     2,
     fillOpacity: 0.75,
   };
 }
@@ -131,15 +118,28 @@ function ModelLayer({ areaName, dataOption }) {
       : dataOption === 'vegetation'
         ? vegetationStyle
         : soilStyle; // fallback
-
+  
+    const onEachFeatureFn = (feature, layer) => {
+      if (dataOption === 'vegetation') {
+        const code    = feature.properties.name;
+        const label   = vegetationMappings[code]?.name || code;
+        layer.bindPopup(label);
+      }
+      else if (dataOption === 'soilType') {
+        const raw     = feature.properties.name;
+        const key     = raw.replace(/[-\s]/g, '');
+        const mapping = soilTypeMappings[key] || { name: raw };
+        layer.bindPopup(mapping.name);
+      }
+      else {
+        layer.bindPopup(feature.properties.name || areaName);
+      }
+    };
   return (
     <VectorGeoJSON
-      key={key}
       url={url}
-      style={styleFn}
-      onEachFeature={(feat, layer) =>
-        layer.bindPopup(feat.properties.name || areaName)
-      }
+      style={dataOption === 'soilType' ? soilStyle : vegetationStyle}
+      onEachFeature={onEachFeatureFn}
     />
   );
 }
@@ -161,7 +161,6 @@ export function Legend({ dataOption, title, colorScale, minVal, maxVal }) {
   const map = useMap();
 
   useEffect(() => {
-    // remove any existing legend
     document.querySelectorAll('.info.legend').forEach(el => el.remove());
     if (!dataOption) return;
 
@@ -169,30 +168,28 @@ export function Legend({ dataOption, title, colorScale, minVal, maxVal }) {
 
     legend.onAdd = () => {
       const container = L.DomUtil.create('div', 'info legend');
-
-      // OVERRIDE the default flex/center from App.css
-      container.style.display = 'block';
-      container.style.textAlign = 'left';
-      container.style.padding = '0.5em';
-      container.style.maxHeight = '12rem';
-      container.style.overflowY = 'auto';
-      container.style.font = '14px/16px Arial, Helvetica, sans-serif';
-      container.style.background = 'rgba(255,255,255,0.9)';
-      container.style.color = '#333';
-      container.style.borderRadius = '5px';
-      container.style.boxShadow = '0 0 15px rgba(0,0,0,0.2)';
+      Object.assign(container.style, {
+        display: 'block',
+        textAlign: 'left',
+        padding: '0.5em',
+        maxHeight: '12rem',
+        overflowY: 'auto',
+        font: '14px/16px Arial, Helvetica, sans-serif',
+        background: 'rgba(255,255,255,0.9)',
+        color: '#333',
+        borderRadius: '5px',
+        boxShadow: '0 0 15px rgba(0,0,0,0.2)',
+      });
 
       // DISCRETE LEGEND
       if (dataOption === 'soilType' || dataOption === 'vegetation') {
         const items = dataOption === 'vegetation'
           ? vegetationMappings
-          : soilTypeColors;
+          : soilTypeMappings;
 
         container.innerHTML = `<h4 style="margin:0 0 .5em; padding:0">${title}</h4>`;
 
-        Object.entries(items).forEach(([key, val]) => {
-          const color = val.color || val;
-          const label = val.name || key;
+        Object.entries(items).forEach(([code, { name, color }]) => {
           container.innerHTML += `
             <div style="
               display:flex;
@@ -208,12 +205,12 @@ export function Legend({ dataOption, title, colorScale, minVal, maxVal }) {
                 margin-right:0.5rem;
                 border:1px solid #555;
               "></span>
-              <span style="margin:0; padding:0;">${label}</span>
+              <span style="margin:0; padding:0;">${name}</span>
             </div>
           `;
         });
 
-        // CONTINUOUS SCALE LEGEND
+      // CONTINUOUS SCALE LEGEND
       } else {
         const midVal = Math.round((minVal + maxVal) / 2);
         const STEPS = 10;
@@ -335,6 +332,7 @@ export function CatchmentLayers({
       maxVal: vals.length ? Math.ceil(Math.max(...vals)) : 1,
     };
   }, [areas, activeAreaId, dataOption]);
+  
   const legendTitles = {
     SOC: 'SOC<br/>[MgC/ha]',
     pH: 'pH',
@@ -347,10 +345,16 @@ export function CatchmentLayers({
   };
 
   // green color ramp for everything
-  const colorScale = useMemo(
-    () => chroma.scale(['#ffffcc', '#c2e699', '#31a354', '#006837']).domain([minVal, maxVal]),
-    [minVal, maxVal]
-  )
+  const colorScale = useMemo(() => {
+    // use true Viridis only for SOC stock
+    if (dataOption === 'socStock') {
+      return chroma.scale('viridis').domain([minVal, maxVal]);
+    }
+    // otherwise keep your green ramp
+    return chroma
+      .scale(['#ffffcc', '#c2e699', '#31a354', '#006837'])
+      .domain([minVal, maxVal]);
+  }, [dataOption, minVal, maxVal]);
   const getColor = v => colorScale(v).hex()
 
   return (
@@ -638,6 +642,11 @@ export default function App() {
   return (
     <div className="App">
       <aside className={`sidebar ${sidebarOpen ? 'open' : 'closed'}`}>
+      <div
+    className="grabber"
+    onClick={() => setSidebarOpen(o => !o)}
+    aria-label={sidebarOpen ? 'Close menu' : 'Open menu'}
+  />
         <button
           className="sidebar-toggle"
           onClick={() => setSidebarOpen(o => !o)}
@@ -823,7 +832,7 @@ export default function App() {
               <ul style={{ marginLeft: "2em", marginBottom: "1em" }}>
                 <li>
                   <a href="https://www.epfl.ch/labs/soil/" target="_blank" rel="noopener noreferrer">
-                    Soil Lab, EPFL – École polytechnique fédérale de Lausanne
+                  Soil Biogeochemistry Laboratory
                   </a>
                 </li>
                 <li>

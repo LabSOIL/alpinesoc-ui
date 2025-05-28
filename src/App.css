@@ -11,7 +11,6 @@ body,
   background: #2a2a2a;
 }
 
-
 .App {
   display: flex;
   height: 100vh;
@@ -378,3 +377,85 @@ body,
   margin-top: 2em;
   font-weight: 700;
 }
+
+
+@media (max-width: 600px) {
+  .cover-content {
+    width: 90%;
+    padding: 1rem;
+  }
+
+  .cover-content h1 {
+    /* smaller, more readable on a phone */
+    font-size: 2rem;
+    line-height: 1.2;
+    /* let it wrap naturally */
+    white-space: normal;
+  }
+
+  /* collapse your hard <br/> on mobile so it becomes one line */
+  .cover-content h1 br {
+    display: none;
+  }
+  .sidebar {
+    position: fixed;
+    bottom: 0;
+    left: 0;
+    right: 0;
+    height: 1.5rem;           /* only grabber visible when closed */
+    overflow: hidden;         /* hide the nav until open */
+    background: #ececec;
+    box-shadow: 0 -2px 8px rgba(0,0,0,0.2);
+    transition: height 0.3s ease;
+    z-index: 1000;
+  }
+  .sidebar.open {
+    height: 65vh;             /* expand sheet to 65% viewport */
+  }
+
+  /* 2. Always-visible grabber handle */
+  .sidebar .grabber {
+    width: 40px;
+    height: 4px;
+    background: #888;
+    border-radius: 2px;
+    margin: 6px auto;
+    cursor: pointer;
+  }
+
+  /* 3. Hide nav when closed; reveal when open */
+  .sidebar:not(.open) nav {
+    display: none;
+  }
+  .sidebar.open nav {
+    display: block;           /* your existing nav styles apply */
+    padding: 1rem;
+  }
+
+  /* 4. Make the map full-screen underneath */
+  .sections,
+  .map-wrapper,
+  .leaflet-container {
+    padding-bottom: 0;
+    height: 100vh;
+    width: 100%;
+  }
+  .overlay-chart {
+    bottom: 0.5rem;           /* sit just above the sheet */
+  }
+
+  /* 5. Legend above everything */
+  .sidebar-toggle {
+    display: none;
+  }
+
+  /* 2) Pull the legend up to top-right, instead of bottom-right */
+  .info.legend {
+    top: -8rem !important;
+    left: auto !important;
+  }
+    /* always sit just above the grabber when closed */
+    .overlay-chart {
+      bottom: 8rem !important;
+    }
+  }
