@@ -643,10 +643,10 @@ export default function App() {
     <div className="App">
       <aside className={`sidebar ${sidebarOpen ? 'open' : 'closed'}`}>
       <div
-    className="grabber"
-    onClick={() => setSidebarOpen(o => !o)}
-    aria-label={sidebarOpen ? 'Close menu' : 'Open menu'}
-  />
+        className="grabber"
+        onClick={() => setSidebarOpen(o => !o)}
+        aria-label={sidebarOpen ? 'Close menu' : 'Open menu'}
+      />
         <button
           className="sidebar-toggle"
           onClick={() => setSidebarOpen(o => !o)}
@@ -748,7 +748,7 @@ export default function App() {
         >
           <div className="cover-content">
             <h1>
-              Soil organic carbon<br />
+              Soil organic carbon
               in Swiss alpine environments
             </h1>
           </div>
