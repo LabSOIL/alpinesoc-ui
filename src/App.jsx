@@ -70,16 +70,50 @@ const dataAccessors = {
   lithology: plot => plot.lithology,
   aerialPhoto: plot => plot.aerialPhoto,
 };
+function soilStyle(feature) {
+  // normalize the raw attribute to match your keys:
+  console.log("Feature properties:", feature.properties);
+  let raw = feature.properties['name'];
+  if (!raw) {
+    return {
+      color: defaultColor,
+      fillColor: defaultColor,
+      weight: 2,
+      fillOpacity: 0.75,
+    };
+  }
+  console.log("Raw soil type:", raw);
+  let key = raw
+    .replace(/[-\s]/g, '');  // remove hyphens/spaces
+  // .replace(/^Coluviosol$/, 'Colluviosol');
+
+  const color = soilTypeColors[key] || defaultColor;
+  return {
+    color,
+    fillColor: color,
+    weight: 2,
+    fillOpacity: 0.75,
+  };
+}
+
+function vegetationStyle(feature) {
+  const raw = feature.properties.name;
+  const mapping = vegetationMappings[raw] || { name: raw, color: defaultColor };
+  return {
+    color: mapping.color,
+    fillColor: mapping.color,
+    weight: 2,
+    fillOpacity: 0.75,
+  };
+}
 
 
 function ModelLayer({ areaName, dataOption }) {
   const url = getStaticModelUrl(areaName, dataOption);
   if (!url) return null;
+  const key = url;
 
-  // force React to mount/unmount based on URL
-  const key = url
-
-  // raster layers
+  // raster outputs
   if (dataOption === 'ndvi' || dataOption === 'socStock') {
     return (
       <ModelRaster
@@ -90,23 +124,26 @@ function ModelLayer({ areaName, dataOption }) {
     );
   }
 
-  // vector layers
-  const style =
+  // vector outputs: soilType vs. vegetation
+  const styleFn =
     dataOption === 'soilType'
-      ? { color: '#e41a1c', weight: 2, fillOpacity: 0.3 }
-      : { color: '#4daf4a', weight: 2, fillOpacity: 0.3 }
+      ? soilStyle
+      : dataOption === 'vegetation'
+        ? vegetationStyle
+        : soilStyle; // fallback
 
   return (
     <VectorGeoJSON
       key={key}
       url={url}
-      style={() => style}
+      style={styleFn}
       onEachFeature={(feat, layer) =>
         layer.bindPopup(feat.properties.name || areaName)
       }
     />
-  )
+  );
 }
+
 
 function VectorGeoJSON({ url, style, onEachFeature }) {
   const [data, setData] = React.useState(null)
@@ -120,60 +157,107 @@ function VectorGeoJSON({ url, style, onEachFeature }) {
   return <GeoJSON data={data} style={style} onEachFeature={onEachFeature} />
 }
 
-function Legend({ selectedData, colorScale, minVal, maxVal }) {
+export function Legend({ dataOption, title, colorScale, minVal, maxVal }) {
   const map = useMap();
 
   useEffect(() => {
-    // remove old legends
+    // remove any existing legend
     document.querySelectorAll('.info.legend').forEach(el => el.remove());
-    if (!selectedData) return;
-
-    const midVal = Math.round((minVal + maxVal) / 2);
-    const midValText = midVal === minVal || midVal === maxVal ? '' : midVal;
-    const STEPS = 10;
-    const samples = colorScale.colors(STEPS);
-    const stops = samples
-      .map((c, i) => `${c} ${Math.round((i / (STEPS - 1)) * 100)}%`)
-      .join(', ');
+    if (!dataOption) return;
 
     const legend = L.control({ position: 'bottomright' });
+
     legend.onAdd = () => {
-      const div = L.DomUtil.create('div', 'info legend');
-      // FIXED WIDTH so it never resizes
-      div.style.width = '8rem';
-      div.innerHTML = `
-        <h4 style="margin-top:0; white-space: normal;">${selectedData}</h4>
-        <div style="display:flex; align-items:center">
-          <div
-            style="
+      const container = L.DomUtil.create('div', 'info legend');
+
+      // OVERRIDE the default flex/center from App.css
+      container.style.display = 'block';
+      container.style.textAlign = 'left';
+      container.style.padding = '0.5em';
+      container.style.maxHeight = '12rem';
+      container.style.overflowY = 'auto';
+      container.style.font = '14px/16px Arial, Helvetica, sans-serif';
+      container.style.background = 'rgba(255,255,255,0.9)';
+      container.style.color = '#333';
+      container.style.borderRadius = '5px';
+      container.style.boxShadow = '0 0 15px rgba(0,0,0,0.2)';
+
+      // DISCRETE LEGEND
+      if (dataOption === 'soilType' || dataOption === 'vegetation') {
+        const items = dataOption === 'vegetation'
+          ? vegetationMappings
+          : soilTypeColors;
+
+        container.innerHTML = `<h4 style="margin:0 0 .5em; padding:0">${title}</h4>`;
+
+        Object.entries(items).forEach(([key, val]) => {
+          const color = val.color || val;
+          const label = val.name || key;
+          container.innerHTML += `
+            <div style="
+              display:flex;
+              align-items:center;
+              margin:0.25em 0;
+              padding:0;
+            ">
+              <span style="
+                display:inline-block;
+                width:1rem;
+                height:1rem;
+                background:${color};
+                margin-right:0.5rem;
+                border:1px solid #555;
+              "></span>
+              <span style="margin:0; padding:0;">${label}</span>
+            </div>
+          `;
+        });
+
+        // CONTINUOUS SCALE LEGEND
+      } else {
+        const midVal = Math.round((minVal + maxVal) / 2);
+        const STEPS = 10;
+        const samples = colorScale.colors(STEPS);
+        const stops = samples
+          .map((c, i) => `${c} ${Math.round((i / (STEPS - 1)) * 100)}%`)
+          .join(', ');
+
+        container.innerHTML = `
+          <h4 style="margin:0 0 .5em; padding:0; white-space:normal">
+            ${title}
+          </h4>
+          <div style="display:flex; align-items:center">
+            <div style="
               background: linear-gradient(to top, ${stops});
-              width: 1rem;
-              height: 6rem;
-              margin-right: 0.5rem;
-            "
-          ></div>
-          <div
-            style="
-              display: flex;
-              flex-direction: column;
-              justify-content: space-between;
-              height: 6rem;
-            "
-          >
-            <span>${maxVal}</span>
-            <span>${midValText}</span>
-            <span>${minVal}</span>
+              width:1rem;
+              height:6rem;
+              margin-right:0.5rem;
+            "></div>
+            <div style="
+              display:flex;
+              flex-direction:column;
+              justify-content:space-between;
+              height:6rem;
+              text-align:left;
+            ">
+              <span>${maxVal}</span>
+              <span>${midVal === minVal || midVal === maxVal ? '' : midVal}</span>
+              <span>${minVal}</span>
+            </div>
           </div>
-        </div>
-      `;
-      return div;
+        `;
+      }
+
+      return container;
     };
+
     legend.addTo(map);
     return () => map.removeControl(legend);
-  }, [map, selectedData, colorScale, minVal, maxVal]);
+  }, [map, dataOption, title, colorScale, minVal, maxVal]);
 
   return null;
 }
+
 
 export function CatchmentLayers({
   areas,
@@ -210,15 +294,6 @@ export function CatchmentLayers({
     }
     map._loaded ? doFly() : map.once('load', doFly)
   }, [areas, activeAreaId, recenterSignal])
-
-  // helper to render a static GeoJSON
-  function VectorGeoJSON({ url, style, onEachFeature }) {
-    const [data, setData] = useState(null)
-    useEffect(() => {
-      fetch(url).then(r => r.json()).then(setData).catch(console.error)
-    }, [url])
-    return data ? <GeoJSON data={data} style={style} onEachFeature={onEachFeature} /> : null
-  }
 
   const { minVal, maxVal } = useMemo(() => {
     // for Temperature/Moisture, read the sensors’ 30 cm bucket
@@ -265,6 +340,10 @@ export function CatchmentLayers({
     pH: 'pH',
     Temperature: 'Avg. temperature (30cm)<br/>[°C]',
     Moisture: 'Moisture (30cm)<br/>[raw counts]',
+    ndvi: 'NDVI',
+    socStock: 'Output SOC stock<br/>[MgC/ha]',
+    soilType: 'Input Soil type',
+    vegetation: 'Input Vegetation',
   };
 
   // green color ramp for everything
@@ -370,7 +449,8 @@ export function CatchmentLayers({
             }
 
             <Legend
-              selectedData={dataOption}
+              dataOption={dataOption}
+              title={legendTitles[dataOption] || dataOption}
               colorScale={colorScale}
               minVal={minVal}
               maxVal={maxVal}
