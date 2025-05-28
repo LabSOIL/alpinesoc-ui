@@ -37,6 +37,7 @@ export default function TimeseriesPlot({ series, dataOption }) {
           title: { text: dataOption === 'Temperature' ? 'Temperature (°C)' : 'Moisture (raw counts)' },
           automargin: true,
         },
+        showlegend: true,   
 
         // legend styling
         legend: { orientation: 'h', xanchor: 'center', x: 0.5, y: -0.2 },
