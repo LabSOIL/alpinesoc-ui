@@ -35,9 +35,14 @@ const modelOptions = [
   { key: 'vegetation', label: 'Input Vegetation' },
 ];
 
-const swissBounds = [[45.5, 5.5], [48.0, 11.0]];
-const valaisBounds = [[45.8, 6.0], [47.3, 8.5]];
-const defaultColor = '#000000';
+const DEPTH_TEMPERATURE_CM = 10; 
+const DEPTH_MOISTURE_CM = 10; 
+
+// Define bounds for Switzerland and Valais
+const BOUNDS_SWITZERLAND = [[45.5, 5.5], [48.0, 11.0]];
+const BOUNDS_VALAIS = [[45.8, 6.0], [47.3, 8.5]];
+const DEFAULT_COLOUR = '#000000';
+
 const soilTypeMappings = {
   Colluviosol:  { name: 'Colluviosol',      color: '#8c510a' },
   Podzosol:     { name: 'Podzosol',         color: '#b35806' },
@@ -53,7 +58,7 @@ const vegetationMappings = {
   Na: { name: 'Nardion', color: '#a1d76a' },
   Cal: { name: 'Calthion', color: '#d9f0d3' },
   Cro: { name: 'Caricetum rostratae', color: '#C7eae5' },
-  Cd: { name: 'Caricion davallianae', color: '#5ab4ac' },
+  'Cd/Cas': { name: 'Caricion davallianae', color: '#5ab4ac' },
   Cfu: { name: 'Caricion fuscae', color: '#01665e' },
 };
 
@@ -85,7 +90,7 @@ export function soilStyle(feature) {
 
 function vegetationStyle(feature) {
   const raw = feature.properties.name;
-  const mapping = vegetationMappings[raw] || { name: raw, color: defaultColor };
+  const mapping = vegetationMappings[raw] || { name: raw, color: DEFAULT_COLOUR };
   return {
     color: mapping.color,
     fillColor: mapping.color,
@@ -187,7 +192,7 @@ export function Legend({ dataOption, title, colorScale, minVal, maxVal }) {
           ? vegetationMappings
           : soilTypeMappings;
 
-        container.innerHTML = `<h4 style="margin:0 0 .5em; padding:0">${title}</h4>`;
+        container.innerHTML = `<h4 style="margin:0 0 .5em; padding:0; text-align:center">${title}</h4>`;
 
         Object.entries(items).forEach(([code, { name, color }]) => {
           container.innerHTML += `
@@ -220,7 +225,7 @@ export function Legend({ dataOption, title, colorScale, minVal, maxVal }) {
           .join(', ');
 
         container.innerHTML = `
-          <h4 style="margin:0 0 .5em; padding:0; white-space:normal">
+          <h4 style="margin:0 0 .5em; padding:0; text-align:center; white-space:normal">
             ${title}
           </h4>
           <div style="display:flex; align-items:center">
@@ -279,7 +284,7 @@ export function CatchmentLayers({
       ? areas.find(a => a.id === activeAreaId)?.geom.coordinates.flatMap(
         ring => ring.map(([lng, lat]) => [lat, lng])
       )
-      : valaisBounds
+      : BOUNDS_VALAIS
 
 
     const doFly = () => {
@@ -293,7 +298,7 @@ export function CatchmentLayers({
   }, [areas, activeAreaId, recenterSignal])
 
   const { minVal, maxVal } = useMemo(() => {
-    // for Temperature/Moisture, read the sensors’ 30 cm bucket
+    // for Temperature/Moisture, read the sensors’ bucket defined by DEPTH_TEMPERATURE_CM
     if (dataOption === 'Temperature' || dataOption === 'Moisture') {
       const sensorVals = (activeAreaId
         ? areas.find(a => a.id === activeAreaId)?.sensors || []
@@ -304,8 +309,8 @@ export function CatchmentLayers({
             dataOption === 'Temperature'
               ? s.average_temperature || {}
               : s.average_moisture || {};
-          const v30 = depths['30'];
-          return typeof v30 === 'number' ? v30 : null;
+          const temp_depths = depths[DEPTH_TEMPERATURE_CM];
+          return typeof temp_depths === 'number' ? temp_depths : null;
         })
         .filter(v => v != null);
 
@@ -336,8 +341,8 @@ export function CatchmentLayers({
   const legendTitles = {
     SOC: 'SOC<br/>[MgC/ha]',
     pH: 'pH',
-    Temperature: 'Avg. temperature (30cm)<br/>[°C]',
-    Moisture: 'Moisture (30cm)<br/>[raw counts]',
+    Temperature: `Avg. temperature (${DEPTH_TEMPERATURE_CM} cm)<br/>[°C]`,
+    Moisture: `Moisture (${DEPTH_MOISTURE_CM} cm)<br/>[raw counts]`,
     ndvi: 'NDVI',
     socStock: 'Output SOC stock<br/>[MgC/ha]',
     soilType: 'Input Soil type',
@@ -374,7 +379,7 @@ export function CatchmentLayers({
               positions={positions}
               pathOptions={{
                 fillOpacity: 0.25,
-                color: isActive ? '#2b8cbe' : defaultColor
+                color: isActive ? '#2b8cbe' : DEFAULT_COLOUR
               }}
               eventHandlers={{
                 add: e => e.target.bringToBack(),
@@ -418,17 +423,21 @@ export function CatchmentLayers({
                     </Popup>
                   </CircleMarker>
                 )
-              })
-            }
+                })
+              }
 
-            {isActive && hasZoomed && ['Temperature', 'Moisture'].includes(dataOption) &&
-              area.sensors.map(sensor => {
+              {isActive && hasZoomed && ['Temperature', 'Moisture'].includes(dataOption) &&
+                area.sensors.map(sensor => {
                 const c = sensor.geom['4326']; if (!c) return null
                 const { x: lon, y: lat } = c
                 const avg = dataOption === 'Temperature'
-                  ? sensor.average_temperature : sensor.average_moisture
-                const v30 = avg?.['30'] ?? null
-                const clr = v30 != null ? getColor(v30) : defaultColor
+                  ? sensor.average_temperature
+                  : sensor.average_moisture;
+                const depth = dataOption === 'Temperature'
+                  ? DEPTH_TEMPERATURE_CM
+                  : DEPTH_MOISTURE_CM;
+                const valueAtDepth = avg?.[depth] ?? null;
+                const clr = valueAtDepth != null ? getColor(valueAtDepth) : DEFAULT_COLOUR;
 
                 return (
                   <CircleMarker
@@ -778,12 +787,12 @@ export default function App() {
           <h2>{areas.find(a => a.id === activeAreaId)?.name || 'Select a catchment'}</h2>
           <div className="map-wrapper">
             <MapContainer
-              bounds={valaisBounds}
+              bounds={BOUNDS_VALAIS}
               zoom={8}
               minZoom={8}
               scrollWheelZoom
               className="leaflet-container"
-              maxBounds={swissBounds} // Set max bounds
+              maxBounds={BOUNDS_SWITZERLAND} // Set max bounds
               maxBoundsViscosity={1.0} // Prevent panning outside bounds
             >
               <Pane name="rasterPane" style={{ zIndex: 450 }} />
