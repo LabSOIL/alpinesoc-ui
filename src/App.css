@@ -354,11 +354,11 @@ body,
   background: #23272f;
   color: #f0f0f0;
   box-shadow: 0 4px 24px rgba(0,0,0,0.14);
-  padding: 2.5rem 2.5rem 2rem 2.5rem;
+  padding: 2rem 2rem 1.5rem 2rem;
   border-radius: 20px;
-  max-width: 700px;
-  margin: 2rem auto;
-  font-size: 1.15rem;
+  max-width: 90%;
+  margin: 1.5rem auto;
+  font-size: 1rem;
 }
 
 .about-body a {
@@ -373,9 +373,10 @@ body,
   line-height: 1.7;
 }
 
-.about-section h4 {
-  margin-top: 2em;
-  font-weight: 700;
+.about-section h4,
+.about-section h6 {
+  /* shrink the header by 10% */
+  font-size: 0.9em;
 }
 
 
