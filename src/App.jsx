@@ -137,6 +137,26 @@ export default function App() {
     setSelectedData(firstKey);
   }, [viewMode, activeAreaId]);
 
+  // Prevent section swapping when scrolling inside Leaflet popups
+  useEffect(() => {
+    const handleGlobalWheel = (event) => {
+      // Check if the event target is inside a Leaflet popup
+      if (event.target.closest('.leaflet-popup')) {
+        event.stopPropagation();
+        event.preventDefault();
+      }
+    };
+
+    // Add event listener with capture=true to intercept before other handlers
+    document.addEventListener('wheel', handleGlobalWheel, { capture: true, passive: false });
+    document.addEventListener('touchmove', handleGlobalWheel, { capture: true, passive: false });
+
+    return () => {
+      document.removeEventListener('wheel', handleGlobalWheel, { capture: true });
+      document.removeEventListener('touchmove', handleGlobalWheel, { capture: true });
+    };
+  }, []);
+
   return (
     <div className="App">
       <SideBar

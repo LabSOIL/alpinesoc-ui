@@ -54,20 +54,42 @@ function ModelLayer({ areaName, dataOption, soilTypeMappings, vegetationMappings
   }
   
   const onEachFeatureFn = (feature, layer) => {
+    let popupContent = '';
     if (dataOption === 'vegetation') {
       const code    = feature.properties.name;
       const label   = vegetationMappings[code]?.name || code;
+      popupContent = label;
       layer.bindPopup(label);
     }
     else if (dataOption === 'soilType') {
       const raw     = feature.properties.name;
       const key     = raw.replace(/[-\s]/g, '');
       const mapping = soilTypeMappings[key] || { name: raw };
+      popupContent = mapping.name;
       layer.bindPopup(mapping.name);
     }
     else {
-      layer.bindPopup(feature.properties.name || areaName);
+      popupContent = feature.properties.name || areaName;
+      layer.bindPopup(popupContent);
     }
+    // Prevent scroll events inside popup from propagating
+    layer.on('popupopen', function(e) {
+      const popupEl = e.popup.getElement();
+      if (popupEl) {
+        const stopScroll = ev => {
+          ev.stopPropagation();
+          ev.preventDefault();
+        };
+        popupEl.addEventListener('wheel', stopScroll, { passive: false });
+        popupEl.addEventListener('touchmove', stopScroll, { passive: false });
+        // Also block on popup content (for inner scrollable content)
+        const content = popupEl.querySelector('.leaflet-popup-content');
+        if (content) {
+          content.addEventListener('wheel', stopScroll, { passive: false });
+          content.addEventListener('touchmove', stopScroll, { passive: false });
+        }
+      }
+    });
   };
   return (
     <VectorGeoJSON
