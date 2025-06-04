@@ -44,7 +44,7 @@ const vegetationMappings = {
 // Define bounds for Switzerland and Valais
 const DEFAULT_COLOUR = '#000000';
 const BOUNDS_SWITZERLAND = [[45.0, 5.0], [48.5, 11.5]];
-const CENTROID_VALAIS = [46.55, 7.25];
+const CENTROID_VALAIS = [46.5, 7.88];
 
 
 
