@@ -139,10 +139,9 @@ export function GeoTiffLayer({ url, opacity = 0.9, resolution = 128 }) {
             : chroma
                 .scale(['#edf8e9','#bae4b3','#74c476','#238b45','#005a32'])
                 .domain([min, max]);
-        const viridis = chroma.scale('viridis').domain([min, max]);
 
         layerRef.current = new GeoRasterLayer({
-          pane: 'rasterPane',       // ← and here
+          pane: 'rasterPane',
           georaster,
           opacity,
           resolution,
@@ -160,14 +159,14 @@ export function GeoTiffLayer({ url, opacity = 0.9, resolution = 128 }) {
               const v = px[0];
               if (v == null) return null;
               const alpha = px[1] != null ? px[1]/255 : 1;
-              const [r, g, b] = viridis(v).rgb();
+              const [r, g, b] = scale(v).rgb();
               return `rgba(${r},${g},${b},${alpha})`;
             }
 
             // fallback: single-band data
             const v = px[0];
             if (v == null) return null;
-            const [r, g, b] = viridis(v).rgb();
+            const [r, g, b] = scale(v).rgb();
             return `rgb(${r},${g},${b})`;
           }
         });

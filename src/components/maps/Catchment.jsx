@@ -130,7 +130,7 @@ export function CatchmentLayers({
     pH: 'pH',
     Temperature: `Avg. temperature (${DEPTH_TEMPERATURE_CM} cm)<br/>[°C]`,
     Moisture: `Moisture (${DEPTH_MOISTURE_CM} cm)<br/>[raw counts]`,
-    ndvi: 'NDVI',
+    ndvi: 'Plant biomass<br/>(NDVI)',
     socStock: 'Output SOC stock<br/>[MgC/ha]',
     soilType: 'Input Soil type',
     vegetation: 'Input Vegetation',

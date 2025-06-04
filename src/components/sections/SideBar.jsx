@@ -14,9 +14,9 @@ const dataOptions = [
 
 const modelOptions = [
   { key: 'socStock', label: 'SOC stock' },
-  { key: 'ndvi', label: 'NDVI' },
   { key: 'soilType', label: 'Soil type' },
-  { key: 'vegetation', label: 'Vegetation' },
+  { key: 'vegetation', label: 'Vegetation type' },
+  { key: 'ndvi', label: 'Plant biomass' },
 ];
 
 export default function SideBar({
