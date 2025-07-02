@@ -34,7 +34,7 @@ export default function TimeseriesPlot({ series, dataOption }) {
           automargin: true,
         },
         yaxis: {
-          title: { text: dataOption === 'Temperature' ? 'Temperature (°C)' : 'Moisture (raw counts)' },
+          title: { text: dataOption === 'Temperature' ? 'Temperature (°C)' : 'VWC (m³/m³)' },
           automargin: true,
         },
         showlegend: true,   

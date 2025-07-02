@@ -62,8 +62,8 @@ export default function About({ sectionsRef }) {
                             TMS-4 TOMST loggers
                         </Link>.
                         In addition, air temperature at the soil surface was monitored alongside
-                        measurements at 30 cm. Soil moisture is presented in [raw counts]
-                        ranging from 115 in dry air to 3635 in distilled water. We present here yearly averages and the entire timeseries for the year 2023-2024.
+                        measurements at 30 cm. Soil moisture is presented as VWC (Volumetric Water Content)
+                        in units of m³/m³, representing the fraction of soil volume occupied by water. We present here yearly averages and the entire timeseries for the year 2023-2024.
                     </Typography>
 
                     <Typography

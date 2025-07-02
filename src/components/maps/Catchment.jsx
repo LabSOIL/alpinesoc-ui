@@ -1,4 +1,3 @@
-
 import React, { useState, useEffect, useRef, useMemo, useLayoutEffect } from 'react';
 import {
   Popup,
@@ -129,7 +128,7 @@ export function CatchmentLayers({
     SOC: 'SOC<br/>[MgC/ha]',
     pH: 'pH',
     Temperature: `Avg. temperature (${DEPTH_TEMPERATURE_CM} cm)<br/>[°C]`,
-    Moisture: `Moisture (${DEPTH_MOISTURE_CM} cm)<br/>[raw counts]`,
+    Moisture: `Moisture (${DEPTH_MOISTURE_CM} cm)<br/>[VWC (m³/m³)]`,
     ndvi: 'Plant biomass<br/>(NDVI)',
     socStock: 'Output SOC stock<br/>[MgC/ha]',
     soilType: 'Input Soil type',
@@ -239,7 +238,7 @@ export function CatchmentLayers({
                       {Object.entries(avg || {}).map(([d, v]) => (
                         <div key={d}>
                           <strong>{d} cm</strong>: {v.toFixed(2)}
-                          {dataOption === 'Temperature' ? ' °C' : ' [raw counts]'}
+                          {dataOption === 'Temperature' ? ' °C' : ' m³/m³'}
                         </div>
                       ))}
                     </Popup>
