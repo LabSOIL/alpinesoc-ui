@@ -45,6 +45,7 @@ const vegetationMappings = {
 const DEFAULT_COLOUR = '#000000';
 const BOUNDS_SWITZERLAND = [[45.0, 5.0], [48.5, 11.5]];
 const CENTROID_VALAIS = [46.5, 7.88];
+const WEBSITE_SLUG = 'alpinesoc';
 
 
 
@@ -54,12 +55,16 @@ export default function App() {
   const [selectedData, setSelectedData] = useState(null);
   const [viewMode, setViewMode] = useState('experimental');
   const [sensorSeries, setSensorSeries] = useState(null);
+  const [zoomRange, setZoomRange] = useState(null);
+  const [sensorLoading, setSensorLoading] = useState(false);
   const sensorCacheRef = useRef({});
+  const activeSensorRef = useRef(null);
   const [shouldRecenter, setShouldRecenter] = useState(false);
   const sectionsRef = useRef([]);
 
-  const handleSensorClick = async (sensorId) => {
-    const cacheKey = `${sensorId}_${selectedData}`;
+  const fetchSensorData = async (sensorId, dataType, zoom) => {
+    const zoomKey = zoom ? `${zoom.start}_${zoom.end}` : 'full';
+    const cacheKey = `${sensorId}_${dataType}_${zoomKey}`;
     const cached = sensorCacheRef.current[cacheKey];
     if (cached) {
       setSensorSeries(cached);
@@ -67,15 +72,20 @@ export default function App() {
     }
 
     let endpoint;
-    if (selectedData === 'Temperature') {
-      endpoint = `/api/public/sensors/${sensorId}/temperature`;
-    } else if (selectedData === 'Moisture') {
-      endpoint = `/api/public/sensors/${sensorId}/moisture`;
+    if (dataType === 'Temperature') {
+      endpoint = `/api/public/sensors/${sensorId}/temperature?website=${WEBSITE_SLUG}`;
+    } else if (dataType === 'Moisture') {
+      endpoint = `/api/public/sensors/${sensorId}/moisture?website=${WEBSITE_SLUG}`;
     } else {
       return;
     }
 
+    if (zoom) {
+      endpoint += `&start=${encodeURIComponent(zoom.start)}&end=${encodeURIComponent(zoom.end)}`;
+    }
+
     try {
+      setSensorLoading(true);
       const res = await fetch(endpoint);
       if (!res.ok) throw new Error(`Failed to load sensor data (${res.status})`);
       const json = await res.json();
@@ -83,6 +93,21 @@ export default function App() {
       setSensorSeries(json);
     } catch (err) {
       console.error(err);
+    } finally {
+      setSensorLoading(false);
+    }
+  };
+
+  const handleSensorClick = async (sensorId) => {
+    activeSensorRef.current = sensorId;
+    setZoomRange(null);
+    await fetchSensorData(sensorId, selectedData, null);
+  };
+
+  const handleZoom = async (zoom) => {
+    setZoomRange(zoom);
+    if (activeSensorRef.current && selectedData) {
+      await fetchSensorData(activeSensorRef.current, selectedData, zoom);
     }
   };
 
@@ -105,7 +130,7 @@ export default function App() {
   };
 
   useEffect(() => {
-    fetch('/api/public/areas')
+    fetch(`/api/public/areas?website=${WEBSITE_SLUG}`)
       .then(r => r.ok ? r.json() : Promise.reject(r.status))
       .then(data => {
         const enriched = data.map(area => ({
@@ -190,6 +215,8 @@ export default function App() {
           soilTypeMappings={soilTypeMappings}
           vegetationMappings={vegetationMappings}
           defaultColour={DEFAULT_COLOUR}
+          onZoom={handleZoom}
+          sensorLoading={sensorLoading}
         />
         <About sectionsRef={sectionsRef} />
       </main>

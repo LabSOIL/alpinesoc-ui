@@ -130,7 +130,8 @@ export default function Catchment({
   soilTypeMappings,
   vegetationMappings,
   defaultColour,
-
+  onZoom,
+  sensorLoading,
 }) {
     const area = areas.find(a => a.id === activeAreaId)
     const areaName = area?.name
@@ -183,7 +184,13 @@ export default function Catchment({
             </MapContainer>
             {sensorSeries && (selectedData === 'Temperature' || selectedData === 'Moisture') && (
               <div className="overlay-chart">
-                <TimeseriesPlot series={sensorSeries} dataOption={selectedData} />
+                <TimeseriesPlot
+                  series={sensorSeries}
+                  dataOption={selectedData}
+                  onZoom={onZoom}
+                  loading={sensorLoading}
+                  resolution={sensorSeries.resolution}
+                />
               </div>
             )}
           </div>
