@@ -7,28 +7,15 @@ const COLORS = [
   '#8c564b', '#e377c2', '#7f7f7f', '#bcbd22', '#17becf',
 ];
 
-function toAlignedData(dataByDepth) {
-  const depths = Object.keys(dataByDepth).sort((a, b) => Number(a) - Number(b));
-  if (!depths.length) return { aligned: null, depths: [] };
+function toAlignedData(data) {
+  if (!data.times || !data.times.length || !data.parameters || !data.parameters.length) {
+    return { aligned: null, labels: [] };
+  }
 
-  // Build union of all timestamps using Maps for correct alignment + sorting
-  const tsSet = new Set();
-  const seriesMaps = depths.map(depth => {
-    const m = new Map();
-    dataByDepth[depth].forEach(d => {
-      const ts = Math.round(new Date(d.time_utc).getTime() / 1000);
-      tsSet.add(ts);
-      m.set(ts, d.y);
-    });
-    return m;
-  });
-
-  const timestamps = Array.from(tsSet).sort((a, b) => a - b);
-  const aligned = [
-    timestamps,
-    ...seriesMaps.map(m => timestamps.map(ts => m.get(ts) ?? null)),
-  ];
-  return { aligned, depths };
+  const times = data.times.map(t => new Date(t).getTime() / 1000);
+  const aligned = [times, ...data.parameters.map(p => p.values)];
+  const labels = data.parameters.map(p => p.name);
+  return { aligned, labels };
 }
 
 function tooltipPlugin(tooltipRef, containerRef) {
@@ -87,8 +74,8 @@ export default function TimeseriesPlot({ series, dataOption, onZoom, loading, re
   const prevStructRef = useRef(null);
   onZoomRef.current = onZoom;
 
-  const byDepth = series.data_by_depth_cm || {};
-  const { aligned, depths } = useMemo(() => toAlignedData(byDepth), [byDepth]);
+  const sensorName = series.sensor?.name || '';
+  const { aligned, labels } = useMemo(() => toAlignedData(series), [series]);
 
   // Create tooltip element once
   useEffect(() => {
@@ -105,14 +92,14 @@ export default function TimeseriesPlot({ series, dataOption, onZoom, loading, re
   useEffect(() => {
     if (!aligned || !containerRef.current) return;
 
-    const structKey = `${depths.join(',')}_${dataOption}_${series.name}`;
+    const structKey = `${labels.join(',')}_${dataOption}_${sensorName}`;
 
     // If chart exists and structure hasn't changed, just update the data
     if (chartRef.current && prevStructRef.current === structKey) {
       chartRef.current.setData(aligned);
       // Update title in-place for resolution changes
       const titleEl = chartRef.current.root.querySelector('.u-title');
-      if (titleEl) titleEl.textContent = `${series.name} \u2014 ${dataOption}`;
+      if (titleEl) titleEl.textContent = `${sensorName} \u2014 ${dataOption}`;
       return;
     }
 
@@ -123,13 +110,13 @@ export default function TimeseriesPlot({ series, dataOption, onZoom, loading, re
 
     prevStructRef.current = structKey;
 
-    const title = `${series.name} \u2014 ${dataOption}`;
+    const title = `${sensorName} \u2014 ${dataOption}`;
 
     const tp = tooltipPlugin(tooltipRef, containerRef);
 
     const opts = {
       width: containerRef.current.clientWidth,
-      height: 240,
+      height: 200,
       title,
       cursor: {
         drag: { x: true, y: false },
@@ -142,12 +129,13 @@ export default function TimeseriesPlot({ series, dataOption, onZoom, loading, re
       },
       scales: { x: { time: true } },
       series: [
-        { label: 'Time' },
-        ...depths.map((depth, i) => ({
-          label: `${depth} cm`,
+        { label: 'Time', value: () => '' },
+        ...labels.map((label, i) => ({
+          label,
           stroke: COLORS[i % COLORS.length],
           width: 1.5,
           spanGaps: false,
+          value: () => '',
         })),
       ],
       axes: [
@@ -184,7 +172,7 @@ export default function TimeseriesPlot({ series, dataOption, onZoom, loading, re
     };
 
     chartRef.current = new uPlot(opts, aligned, containerRef.current);
-  }, [aligned, dataOption, resolution, series.name]);
+  }, [aligned, dataOption, resolution, sensorName]);
 
   // Cleanup on unmount
   useEffect(() => () => {
@@ -208,7 +196,7 @@ export default function TimeseriesPlot({ series, dataOption, onZoom, loading, re
     const el = containerRef.current;
     if (!el) return;
     const observer = new ResizeObserver(() => {
-      if (chartRef.current) chartRef.current.setSize({ width: el.clientWidth, height: 240 });
+      if (chartRef.current) chartRef.current.setSize({ width: el.clientWidth, height: 200 });
     });
     observer.observe(el);
     return () => observer.disconnect();

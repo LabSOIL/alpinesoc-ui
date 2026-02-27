@@ -332,7 +332,7 @@ body,
   bottom: 1rem;
   left: 1rem;
   right: 1rem;
-  height: 300px;
+  height: 220px;
   /* fixed chart height */
   background: white;
   color: #333;
@@ -351,7 +351,7 @@ body,
 
 .map-wrapper:has(.overlay-chart) .leaflet-bottom.leaflet-right {
   transition: bottom 0.2s;
-  bottom: 310px;
+  bottom: 160px;
 }
 
 .leaflet-container *,
